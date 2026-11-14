@@ -316,8 +316,8 @@ class TestSectionsAPI:
             sections=extract_sections(JOB_HTML),
         )
         opportunity.approve(admin_user)
-        past = timezone.now() - timedelta(days=3)  # out of the early-access window
-        Opportunity.objects.filter(pk=opportunity.pk).update(published_at=past, free_access_at=past)
+        past = timezone.now() - timedelta(days=3)
+        Opportunity.objects.filter(pk=opportunity.pk).update(published_at=past)
 
         detail = api_client.get(f"/api/opportunities/{opportunity.pk}/").data
         listing = api_client.get("/api/opportunities/").data["results"][0]

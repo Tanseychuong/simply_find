@@ -10,15 +10,10 @@ lets a non-admin user approve/reject — granted via a "Moderators" Group in
 Django admin, not a field on User. See docs/opportunities.md.
 """
 
-from datetime import timedelta
-
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
-
-EARLY_ACCESS_WINDOW = timedelta(hours=getattr(settings, "EARLY_ACCESS_HOURS", 48))
-
 
 class OpportunityCategory(models.Model):
     """Admin-manageable, not an enum, so new categories don't need a code
@@ -135,9 +130,7 @@ class Opportunity(models.Model):
     reviewed_at = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.TextField(blank=True)
 
-    # --- Premium early access ---------------------------------------------
     published_at = models.DateTimeField(null=True, blank=True)
-    free_access_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name_plural = "opportunities"
@@ -146,7 +139,6 @@ class Opportunity(models.Model):
         ]
         indexes = [
             models.Index(fields=["status", "category"]),
-            models.Index(fields=["status", "free_access_at"]),
             models.Index(fields=["status", "published_at"]),
             models.Index(fields=["application_deadline"]),
             models.Index(fields=["enrichment_status", "enrichment_checked_at"]),
@@ -161,7 +153,6 @@ class Opportunity(models.Model):
         self.reviewed_by = reviewer
         self.reviewed_at = now
         self.published_at = now
-        self.free_access_at = now + EARLY_ACCESS_WINDOW
         self.save()
 
     def reject(self, reviewer, reason: str) -> None:
@@ -176,10 +167,7 @@ class Opportunity(models.Model):
             return False
         if self.company_id and self.company.status != "approved":
             return False  # suspended/rejected companies' jobs come off the site
-        now = timezone.now()
-        if _is_premium(user):
-            return self.published_at is not None and self.published_at <= now
-        return self.free_access_at is not None and self.free_access_at <= now
+        return self.published_at is not None and self.published_at <= timezone.now()
 
     @property
     def is_open(self) -> bool:
@@ -187,15 +175,14 @@ class Opportunity(models.Model):
 
     @classmethod
     def visibility_q(cls, user, prefix: str = "", now=None) -> Q:
-        """The premium/free visibility rule as a Q object, so it can be used
+        """The visibility rule as a Q object, so it can be used
         both as a plain filter and inside annotations (e.g. per-category
         counts) without restating the rule. `prefix` lets a related model
         apply it, e.g. prefix="opportunities__"."""
         now = now or timezone.now()
-        time_field = "published_at" if _is_premium(user) else "free_access_at"
         # Jobs from a company that has been suspended or rejected are hidden.
         company_ok = Q(**{f"{prefix}company__isnull": True}) | Q(**{f"{prefix}company__status": "approved"})
-        return Q(**{f"{prefix}status": cls.Status.APPROVED, f"{prefix}{time_field}__lte": now}) & company_ok
+        return Q(**{f"{prefix}status": cls.Status.APPROVED, f"{prefix}published_at__lte": now}) & company_ok
 
     @classmethod
     def open_q(cls, prefix: str = "", now=None) -> Q:
@@ -211,13 +198,6 @@ class Opportunity(models.Model):
         loading every row to check it in Python. Use this in every list
         view rather than filtering in a loop."""
         return cls.objects.filter(cls.visibility_q(user))
-
-
-def _is_premium(user) -> bool:
-    # With premium frozen, everyone gets the premium timeline (no wait).
-    if not settings.PREMIUM_ENABLED:
-        return True
-    return user is not None and getattr(user, "is_authenticated", False) and user.is_premium_active()
 
 
 class SavedOpportunity(models.Model):

@@ -1,8 +1,8 @@
 """
-Shared fixtures. One user fixture per access tier (free/premium/moderator/
-admin) so tests read as "given a <tier> user" rather than constructing
-users inline everywhere — and so a change to how a tier is granted
-(e.g. premium expiry logic) only needs updating here.
+Shared fixtures. One user fixture per access tier (user/moderator/admin)
+so tests read as "given a <tier> user" rather than constructing users
+inline everywhere, and a change to how a tier is granted only needs
+updating here.
 """
 
 import pytest
@@ -19,14 +19,6 @@ def _reset_throttles():
     # Throttle counters live in the cache; without this, login/register
     # calls from earlier tests count against later ones.
     cache.clear()
-
-
-@pytest.fixture(autouse=True)
-def _premium_enabled(settings):
-    # Premium is frozen by default in production; the existing tests cover
-    # the early-access rules, so they run with it on. Frozen-mode tests
-    # flip it back off (tests/test_premium_frozen.py).
-    settings.PREMIUM_ENABLED = True
 
 
 @pytest.fixture(autouse=True)
@@ -58,14 +50,6 @@ def category(db):
 @pytest.fixture
 def user(db):
     return User.objects.create_user(email="user@example.com", name="Test User", password="testpass123")
-
-
-@pytest.fixture
-def premium_user(db):
-    return User.objects.create_user(
-        email="premium@example.com", name="Premium User",
-        password="testpass123", is_premium=True,
-    )
 
 
 @pytest.fixture

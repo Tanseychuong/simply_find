@@ -25,7 +25,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.opportunities.models import EARLY_ACCESS_WINDOW, Opportunity, OpportunityCategory
+from apps.opportunities.models import Opportunity, OpportunityCategory
 
 # (category slug, title, organisation, location, deadline in days or None,
 #  published days ago, description)
@@ -128,7 +128,6 @@ class Command(BaseCommand):
                     reviewed_by=admin,
                     reviewed_at=published,
                     published_at=published,
-                    free_access_at=published + EARLY_ACCESS_WINDOW,
                     # No URL to visit, so the enrichment worker has nothing to do.
                     enrichment_status=Opportunity.EnrichmentStatus.SKIPPED,
                     enrichment_checked_at=now,

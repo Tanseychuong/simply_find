@@ -75,7 +75,6 @@ class TestPurging:
 
     def test_deletes_everything_after_the_hold(self, api_client, user, category, settings,
                                                django_capture_on_commit_callbacks):
-        settings.PREMIUM_ENABLED = False
         listing = Opportunity.objects.create(title="Mine", description="x", category=category, posted_by=user)
         # an application with a stored file
         owner = User.objects.create_user(email="hr@x.test", name="HR", password="testpass123")

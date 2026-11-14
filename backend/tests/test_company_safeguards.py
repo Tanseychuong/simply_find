@@ -17,7 +17,7 @@ from apps.companies.services import flagged_terms, review_company
 from apps.opportunities.models import Opportunity
 
 # Shared fixtures/helpers (pytest picks up imported fixtures).
-from tests.test_companies import _company, _job_payload, _premium_frozen, live_job, owner, owner_client  # noqa: F401
+from tests.test_companies import _company, _job_payload, _temp_uploads, live_job, owner, owner_client  # noqa: F401
 
 
 def _apply(client, job, **override):

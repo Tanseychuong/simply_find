@@ -120,19 +120,12 @@ class OpportunityViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny])
     def stats(self, request):
-        user = _current_user(request)
-        premium = settings.PREMIUM_ENABLED
-        tier = "premium" if not premium or (user and user.is_premium_active()) else "free"
-        key = f"opportunities:landing-stats:{tier}"
+        key = "opportunities:landing-stats"
         data = cache.get(key)
         if data is None:
-            data = landing_stats(user)
+            data = landing_stats(_current_user(request))
             cache.set(key, data, settings.LANDING_STATS_CACHE_SECONDS)
-        return Response({
-            **data,
-            "premium_enabled": premium,
-            "early_access_hours": settings.EARLY_ACCESS_HOURS if premium else 0,
-        })
+        return Response(data)
 
     # --- Moderation actions -------------------------------------------------
 

@@ -12,18 +12,6 @@ from .forms import UserCreationForm, UserChangeForm
 from .models import User
 
 
-@admin.action(description="Grant premium (no expiry)", permissions=["change"])
-def grant_premium(modeladmin, request, queryset):
-    count = queryset.update(is_premium=True, premium_expires_at=None)
-    modeladmin.message_user(request, f"Granted premium to {count} user(s).")
-
-
-@admin.action(description="Revoke premium", permissions=["change"])
-def revoke_premium(modeladmin, request, queryset):
-    count = queryset.update(is_premium=False, premium_expires_at=None)
-    modeladmin.message_user(request, f"Revoked premium from {count} user(s).")
-
-
 @admin.action(description="Restore account (cancel a deletion request)", permissions=["change"])
 def restore_account(modeladmin, request, queryset):
     from .deletion import restore
@@ -50,12 +38,12 @@ class UserAdmin(BaseUserAdmin):
     model = User
 
     ordering = ("email",)
-    list_display = ("email", "name", "is_staff", "is_superuser", "premium_active", "created_at", "deletion_requested_at")
-    list_filter = ("is_staff", "is_superuser", "is_premium", "is_active", "groups")
+    list_display = ("email", "name", "is_staff", "is_superuser", "created_at", "deletion_requested_at")
+    list_filter = ("is_staff", "is_superuser", "is_active", "groups")
     search_fields = ("email", "name")
     readonly_fields = ("created_at", "deletion_requested_at", "google_sub")
     date_hierarchy = "created_at"
-    actions = [grant_premium, revoke_premium, restore_account, unlink_google]
+    actions = [restore_account, unlink_google]
 
     # Deleting someone here must not take the company jobs they posted with
     # them (Opportunity.posted_by cascades); those pass to the company's team.
@@ -70,16 +58,10 @@ class UserAdmin(BaseUserAdmin):
             keep_company_jobs(user)
         super().delete_queryset(request, queryset)
 
-    @admin.display(description="Premium", boolean=True)
-    def premium_active(self, obj):
-        # is_premium alone stays True after premium_expires_at passes.
-        return obj.is_premium_active()
-
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Personal info", {"fields": ("name", "profile_picture")}),
         ("Google sign-in", {"fields": ("google_sub",)}),
-        ("Premium", {"fields": ("is_premium", "premium_expires_at")}),
         (
             "Permissions",
             {

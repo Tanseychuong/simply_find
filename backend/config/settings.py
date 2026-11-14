@@ -181,14 +181,6 @@ SIMPLE_JWT = {
 # same ID as VITE_GOOGLE_CLIENT_ID. Unset = Google sign-in is switched off.
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
 
-# Mirrors models.EARLY_ACCESS_WINDOW from the Flask version — how long free
-# users wait after approval before an opportunity becomes visible to them.
-EARLY_ACCESS_HOURS = int(os.environ.get("EARLY_ACCESS_HOURS", 48))
-# Premium is frozen until further notice: everyone sees listings as soon as
-# they're approved. Set PREMIUM_ENABLED=True (and VITE_PREMIUM_ENABLED=true
-# on the frontend) to bring back the early-access window — free_access_at is
-# still recorded on every approval, so nothing needs backfilling.
-PREMIUM_ENABLED = os.environ.get("PREMIUM_ENABLED", "False") == "True"
 MAX_PAGE_SIZE = int(os.environ.get("MAX_PAGE_SIZE", 100))
 
 

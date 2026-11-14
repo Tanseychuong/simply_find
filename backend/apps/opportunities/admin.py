@@ -6,7 +6,7 @@ day one. A real admin UI can be built later without this ever blocking
 launch.
 
 Every status change — bulk action or the change form's dropdown — goes
-through Opportunity.approve()/reject(), so published_at/free_access_at and
+through Opportunity.approve()/reject(), so published_at and
 the reviewer trail are always set the same way as from the API.
 """
 
@@ -107,7 +107,7 @@ class OpportunityAdmin(admin.ModelAdmin):
     raw_id_fields = ("posted_by", "fetch_source")
     readonly_fields = (
         "submitted_at", "reviewed_by", "reviewed_at",
-        "published_at", "free_access_at", "open_link",
+        "published_at", "open_link",
         "image_preview", "enrichment_status", "enrichment_attempts", "enrichment_checked_at",
         "source_published_at", "listing_link",
     )
@@ -127,7 +127,7 @@ class OpportunityAdmin(admin.ModelAdmin):
             "fields": ("status", "rejection_reason", "submitted_at", "reviewed_by", "reviewed_at"),
             "description": "Changing the status here approves or rejects the listing exactly like the bulk actions.",
         }),
-        ("Premium early access", {"fields": ("published_at", "free_access_at")}),
+        ("Publishing", {"fields": ("published_at",)}),
         ("Automatic enrichment", {"fields": ("enrichment_status", "enrichment_attempts", "enrichment_checked_at")}),
     )
 

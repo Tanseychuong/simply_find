@@ -42,7 +42,7 @@ def reject_opportunity(opportunity: Opportunity, reviewer, reason: str) -> Oppor
 
 def list_visible_opportunities(user, category_slug: str | None = None, include_expired: bool = False):
     """The one place list endpoints get their queryset from — applies the
-    premium/free visibility rule via Opportunity.visible_to(), hides
+    visibility rule via Opportunity.visible_to(), hides
     listings whose deadline has passed (unless include_expired), then an
     optional category filter on top."""
     queryset = Opportunity.visible_to(user).select_related("category", "posted_by", "company")

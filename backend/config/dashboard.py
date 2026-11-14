@@ -81,7 +81,6 @@ def dashboard_context(request) -> dict:
         dash["users"] = User.objects.aggregate(
             total=Count("id"),
             new_week=Count("id", filter=Q(created_at__gte=week_ago)),
-            premium=Count("id", filter=Q(is_premium=True) & (Q(premium_expires_at__isnull=True) | Q(premium_expires_at__gt=now))),
         )
 
     if user.has_perm("opportunities.view_savedopportunity"):

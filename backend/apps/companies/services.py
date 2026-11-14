@@ -336,14 +336,14 @@ def update_job(job: Opportunity, company: Company, data, requirements=None) -> O
     # An edit must not re-date a live job (it would jump back to the top of
     # the feed and restart the early-access window), so keep its timestamps.
     was_live = job.status == Opportunity.Status.APPROVED
-    published_at, free_access_at = job.published_at, job.free_access_at
+    published_at = job.published_at
     job.status = Opportunity.Status.PENDING
     job.rejection_reason = ""
     job.save()
     _publish_or_hold(job, company, list(job.requirements.values("label", "help_text")))
     if was_live and job.status == Opportunity.Status.APPROVED and published_at:
-        job.published_at, job.free_access_at = published_at, free_access_at
-        job.save(update_fields=["published_at", "free_access_at"])
+        job.published_at = published_at
+        job.save(update_fields=["published_at"])
     return job
 
 

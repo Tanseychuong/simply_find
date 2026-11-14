@@ -8,7 +8,7 @@ from .sections import KINDS, clean_sections, text_to_blocks
 
 class PosterSerializer(serializers.ModelSerializer):
     """Who posted a listing, as anyone browsing may see it — no email,
-    role or premium status (listings are public)."""
+    role (listings are public)."""
 
     class Meta:
         model = User

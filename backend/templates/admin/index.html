@@ -95,11 +95,6 @@
           <div class="eel-kpi__value">{{ dash.users.total }}</div>
           <div class="eel-kpi__hint">{{ dash.users.new_week }} joined this week</div>
         </a>
-        <a class="eel-kpi" href="{% url 'admin:accounts_user_changelist' %}?is_premium__exact=1">
-          <div class="eel-kpi__label">Premium</div>
-          <div class="eel-kpi__value">{{ dash.users.premium }}</div>
-          <div class="eel-kpi__hint">active subscriptions</div>
-        </a>
       {% endif %}
       {% if "saves" in dash %}
         <a class="eel-kpi" href="{% url 'admin:opportunities_savedopportunity_changelist' %}">

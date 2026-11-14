@@ -10,9 +10,8 @@ from apps.opportunities.models import Opportunity
 
 
 @pytest.fixture(autouse=True)
-def _premium_frozen(settings, tmp_path):
-    # Everyone sees approved listings straight away; uploads go to a temp dir.
-    settings.PREMIUM_ENABLED = False
+def _temp_uploads(settings, tmp_path):
+    # Uploads go to a temp dir.
     settings.MEDIA_ROOT = tmp_path
     fs = {"BACKEND": "django.core.files.storage.FileSystemStorage"}
     settings.STORAGES = {**settings.STORAGES, "default": fs, "applications": fs}

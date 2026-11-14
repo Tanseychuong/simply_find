@@ -57,11 +57,6 @@ class TestMe:
         assert response.data["email"] == user.email
         assert response.data["role"] == "user"
 
-    def test_me_shows_premium_active(self, api_client, premium_user):
-        api_client.force_authenticate(user=premium_user)
-        response = api_client.get("/api/auth/me/")
-        assert response.data["is_premium_active"] is True
-
     def test_me_shows_admin_role(self, api_client, admin_user):
         api_client.force_authenticate(user=admin_user)
         response = api_client.get("/api/auth/me/")

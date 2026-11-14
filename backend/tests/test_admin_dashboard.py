@@ -21,7 +21,6 @@ class TestAdminDashboard:
             application_deadline=timezone.now() + timedelta(days=3),
         )
         live.approve(admin_user)
-        Opportunity.objects.filter(pk=live.pk).update(free_access_at=timezone.now() - timedelta(minutes=1))
 
         response = self._client(admin_user).get("/admin/")
         assert response.status_code == 200

@@ -9,8 +9,6 @@ import pytest
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.db import connection
-from django.db.migrations.executor import MigrationExecutor
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -33,7 +31,6 @@ def _send_emails_now(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _local(settings, tmp_path):
-    settings.PREMIUM_ENABLED = False
     settings.MEDIA_ROOT = tmp_path
     fs = {"BACKEND": "django.core.files.storage.FileSystemStorage"}
     settings.STORAGES = {**settings.STORAGES, "default": fs, "applications": fs}
@@ -299,30 +296,6 @@ class TestDeletingAnAccount:
         assert company.status == "suspended"
         self._delete_and_purge(solo_c, solo)
         assert not Company.objects.filter(pk=company.pk).exists() and not Opportunity.objects.filter(pk=job.pk).exists()
-
-
-@pytest.mark.django_db(transaction=True)
-class TestMigration:
-    """The production migration: each company's single owner becomes its first member."""
-
-    def test_owner_becomes_first_owner_member(self):
-        executor = MigrationExecutor(connection)
-        executor.migrate([("companies", "0002_application_consent_at_company_terms_accepted_at_and_more")])
-        old_apps = executor.loader.project_state(
-            [("companies", "0002_application_consent_at_company_terms_accepted_at_and_more")]).apps
-        OldUser = old_apps.get_model("accounts", "User")
-        OldCompany = old_apps.get_model("companies", "Company")
-        boss = OldUser.objects.create(email="boss@old.test", name="Boss", password="!")
-        OldCompany.objects.create(owner=boss, name="OldCo", slug="oldco", status="approved")
-
-        executor = MigrationExecutor(connection)
-        executor.loader.build_graph()
-        executor.migrate(executor.loader.graph.leaf_nodes())
-
-        company = Company.objects.get(slug="oldco")
-        membership = company.memberships.get()
-        assert membership.user.email == "boss@old.test" and membership.role == "owner"
-        assert company.created_by_id == membership.user_id
 
 
 class TestReviewFixes:

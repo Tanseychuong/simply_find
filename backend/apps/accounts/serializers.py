@@ -13,7 +13,6 @@ class UserSerializer(serializers.ModelSerializer):
     """Read-only representation used by /me and anywhere else a user's
     public info is embedded (e.g. Opportunity.posted_by)."""
 
-    is_premium_active = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
     company = serializers.SerializerMethodField()
     # How the user signs in, so the profile can offer the right confirmation
@@ -23,7 +22,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "name", "email", "profile_picture", "is_premium_active", "role", "company",
+        fields = ["id", "name", "email", "profile_picture", "role", "company",
                   "has_password", "google_linked", "created_at"]
         read_only_fields = fields
 
@@ -32,10 +31,6 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_google_linked(self, obj) -> bool:
         return bool(obj.google_sub)
-
-    def get_is_premium_active(self, obj) -> bool:
-        # Frozen premium: nobody is shown as Premium, whatever the flag says.
-        return settings.PREMIUM_ENABLED and obj.is_premium_active()
 
     def get_company(self, obj):
         """The company account this user is on the team of, and their role."""
@@ -58,9 +53,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     """Write serializer for a user editing their own profile — deliberately
-    excludes email, password, role/premium fields. Those go through their
+    excludes email, password, role fields. Those go through their
     own dedicated flows (email is the login identity, password has its own
-    change flow, role/premium are admin-only)."""
+    change flow, roles are admin-only)."""
 
     class Meta:
         model = User

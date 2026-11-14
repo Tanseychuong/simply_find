@@ -15,7 +15,6 @@ custom code. See apps/opportunities/models.py's Meta.permissions.
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
-from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -46,11 +45,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
 
-    # Premium status — same design as the Flask version. is_premium_active()
-    # is the one method every view/permission check should call.
-    is_premium = models.BooleanField(default=False)
-    premium_expires_at = models.DateTimeField(null=True, blank=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
     # Set when the user asks to delete their account: they're deactivated
     # at once and permanently deleted after the hold (apps/accounts/deletion.py).
@@ -67,11 +61,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["name"]
 
-    class Meta:
-        indexes = [
-            models.Index(fields=["is_premium"]),
-        ]
-
     def __str__(self):
         return self.email
 
@@ -81,14 +70,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         if self.tokens_valid_after is None:
             return True
         return issued_at is not None and int(issued_at) >= int(self.tokens_valid_after.timestamp())
-
-    def is_premium_active(self) -> bool:
-        """The single source of truth for 'does this user get early access'."""
-        if not self.is_premium:
-            return False
-        if self.premium_expires_at is None:
-            return True  # no expiry set = indefinite premium (e.g. admin-granted)
-        return self.premium_expires_at > timezone.now()
 
     def is_moderator(self) -> bool:
         """True for superusers too, so admins never need the explicit

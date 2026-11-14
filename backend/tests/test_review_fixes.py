@@ -13,7 +13,7 @@ from rest_framework.test import APIClient
 from apps.companies.models import Application, ApplicationAnswer, Company
 from apps.companies.services import review_company, submit_application
 from apps.opportunities.models import Opportunity, SavedOpportunity
-from tests.test_companies import _company, _job_payload, _premium_frozen, live_job, owner, owner_client  # noqa: F401
+from tests.test_companies import _company, _job_payload, _temp_uploads, live_job, owner, owner_client  # noqa: F401
 
 
 def _apply(client, job):
@@ -75,7 +75,7 @@ class TestEditKeepsPublishDate:  # finding 5
         owner_client.patch(f"/api/companies/me/jobs/{live_job.pk}/", {"title": "Typo fixed"}, format="json")
         after = Opportunity.objects.get(pk=live_job.pk)
         assert after.status == "approved" and after.title == "Typo fixed"
-        assert after.published_at == before.published_at and after.free_access_at == before.free_access_at
+        assert after.published_at == before.published_at
 
 
 class TestDoubleSubmit:  # finding 6
