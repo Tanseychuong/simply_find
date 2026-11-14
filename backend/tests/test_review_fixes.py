@@ -13,7 +13,7 @@ from rest_framework.test import APIClient
 from apps.companies.models import Application, ApplicationAnswer, Company
 from apps.companies.services import review_company, submit_application
 from apps.opportunities.models import Opportunity, SavedOpportunity
-from tests.test_companies import _company, _job_payload, _premium_frozen, live_job, owner, owner_client  # noqa: F401
+from tests.test_companies import _company, _job_payload, _temp_uploads, live_job, owner, owner_client  # noqa: F401
 
 
 def _apply(client, job):
@@ -21,16 +21,14 @@ def _apply(client, job):
     why = job.requirements.get(label="Why us?")
     return client.post("/api/applications/", {
         "opportunity": job.pk, "consent": "true",
-        f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF"), f"answer_{why.pk}": "Because.",
+        f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF-1.4 cv"), f"answer_{why.pk}": "Because.",
     }, format="multipart")
 
 
 class TestCors:  # finding 2
-    def test_production_sites_always_allowed_and_env_adds_more(self):
+    def test_the_site_is_always_allowed(self):
         from django.conf import settings
-        for origin in ("https://globalopportunities.live", "https://www.globalopportunities.live",
-                       "https://eel-web.onrender.com"):
-            assert origin in settings.CORS_ALLOWED_ORIGINS
+        assert settings.SITE_URL in settings.CORS_ALLOWED_ORIGINS
         assert settings.CSRF_TRUSTED_ORIGINS == settings.CORS_ALLOWED_ORIGINS
 
     def test_reset_links_use_the_canonical_site(self):
@@ -75,7 +73,7 @@ class TestEditKeepsPublishDate:  # finding 5
         owner_client.patch(f"/api/companies/me/jobs/{live_job.pk}/", {"title": "Typo fixed"}, format="json")
         after = Opportunity.objects.get(pk=live_job.pk)
         assert after.status == "approved" and after.title == "Typo fixed"
-        assert after.published_at == before.published_at and after.free_access_at == before.free_access_at
+        assert after.published_at == before.published_at
 
 
 class TestDoubleSubmit:  # finding 6
@@ -86,26 +84,28 @@ class TestDoubleSubmit:  # finding 6
                 submit_application(user, live_job, {"consent": "true",
                                                     f"answer_{live_job.requirements.get(label='Why us?').pk}": "x",
                                                     }, {f"answer_{live_job.requirements.get(label='CV').pk}":
-                                                        SimpleUploadedFile("cv.pdf", b"%PDF")})
+                                                        SimpleUploadedFile("cv.pdf", b"%PDF-1.4 cv")})
         assert "already applied" in str(exc.value.detail)
 
 
 class TestPasswordResetEndsSessions:  # finding 7
     def test_old_access_and_refresh_tokens_stop_working(self, user):
         client = APIClient()
-        tokens = client.post("/api/auth/login/", {"email": user.email, "password": "testpass123"}, format="json").data
+        login = client.post("/api/auth/login/", {"email": user.email, "password": "testpass123"}, format="json")
+        tokens = {name: login.cookies[f"sf_{name}"].value for name in ("access", "refresh")}
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
         assert client.get("/api/auth/me/").status_code == 200
 
         # Backdate the cut-off check by making the old tokens look a second older.
         from django.utils import timezone
         from datetime import timedelta
+        user.refresh_from_db()  # signing in set last_login, which reset tokens depend on
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
         with mock.patch("apps.accounts.views.timezone.now", return_value=timezone.now() + timedelta(seconds=2)):
             res = APIClient().post("/api/auth/password-reset/confirm/",
                                    {"uid": uid, "token": token, "password": "N3w-Passw0rd!x"}, format="json")
-        assert res.status_code == 200
+        assert res.status_code == 200, res.data
 
         assert client.get("/api/auth/me/").status_code == 401
         assert APIClient().post("/api/auth/refresh/", {"refresh": tokens["refresh"]}, format="json").status_code == 401
@@ -115,7 +115,8 @@ class TestPasswordResetEndsSessions:  # finding 7
         user.tokens_valid_after = timezone.now()
         user.save()
         client = APIClient()
-        tokens = client.post("/api/auth/login/", {"email": user.email, "password": "testpass123"}, format="json").data
+        login = client.post("/api/auth/login/", {"email": user.email, "password": "testpass123"}, format="json")
+        tokens = {name: login.cookies[f"sf_{name}"].value for name in ("access", "refresh")}
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
         assert client.get("/api/auth/me/").status_code == 200
         assert client.post("/api/auth/refresh/", {"refresh": tokens["refresh"]}, format="json").status_code == 200

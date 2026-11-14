@@ -17,12 +17,12 @@ def _uid_token(user):
 @pytest.mark.django_db
 class TestPasswordResetRequest:
     def test_sends_email_with_reset_link(self, api_client, user, settings):
-        settings.FRONTEND_URL = "https://eel-web.onrender.com"
+        settings.FRONTEND_URL = "https://simplyfind.example"
         response = api_client.post(REQUEST_URL, {"email": user.email})
         assert response.status_code == 200
         assert len(mail.outbox) == 1
         assert mail.outbox[0].to == [user.email]
-        assert "https://eel-web.onrender.com/reset-password?uid=" in mail.outbox[0].body
+        assert "https://simplyfind.example/reset-password?uid=" in mail.outbox[0].body
 
     def test_email_lookup_is_case_insensitive(self, api_client, user):
         response = api_client.post(REQUEST_URL, {"email": user.email.upper()})
@@ -110,11 +110,11 @@ def test_brevo_backend_posts_to_api(monkeypatch, settings):
         return FakeResponse()
 
     monkeypatch.setattr(email_backends.requests, "post", fake_post)
-    message = EmailMessage("Subject", "Body", "EEL <sender@example.com>", ["to@example.com"])
+    message = EmailMessage("Subject", "Body", "SimplyFind <sender@example.com>", ["to@example.com"])
     sent = email_backends.BrevoEmailBackend().send_messages([message])
 
     assert sent == 1
     assert calls[0]["url"] == email_backends.BREVO_SEND_URL
     assert calls[0]["headers"]["api-key"] == "test-key"
-    assert calls[0]["json"]["sender"] == {"name": "EEL", "email": "sender@example.com"}
+    assert calls[0]["json"]["sender"] == {"name": "SimplyFind", "email": "sender@example.com"}
     assert calls[0]["json"]["to"] == [{"email": "to@example.com"}]

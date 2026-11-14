@@ -7,4 +7,4 @@ class CompaniesConfig(AppConfig):
     verbose_name = "Companies & applications"
 
     def ready(self):
-        from . import checks, signals  # noqa: F401  (registers the check and signal handlers)
+        from . import signals  # noqa: F401  (registers the signal handlers)

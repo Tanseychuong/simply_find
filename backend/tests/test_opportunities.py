@@ -1,9 +1,8 @@
 from io import StringIO
-from datetime import timedelta
 
 import pytest
-from django.utils import timezone
 
+from apps.accounts.models import User
 from apps.opportunities.models import Opportunity
 
 
@@ -33,36 +32,17 @@ class TestSubmission:
 
 @pytest.mark.django_db
 class TestVisibility:
-    """The most important behavior in the app — get this wrong and either
-    free users get early access for free, or premium gets no benefit."""
+    """Approved listings are public at once; pending ones are not."""
 
     def test_pending_not_visible_in_list(self, api_client, pending_opportunity):
         response = api_client.get("/api/opportunities/")
         titles = [o["title"] for o in response.data["results"]]
         assert pending_opportunity.title not in titles
 
-    def test_approved_not_yet_visible_to_free_user_in_window(self, api_client, admin_user, pending_opportunity, user):
-        pending_opportunity.approve(admin_user)  # free_access_at defaults to now + 48h
-
-        api_client.force_authenticate(user=user)
-        response = api_client.get("/api/opportunities/")
-        titles = [o["title"] for o in response.data["results"]]
-        assert pending_opportunity.title not in titles
-
-    def test_approved_visible_to_free_user_after_window(self, api_client, admin_user, pending_opportunity, user):
-        pending_opportunity.approve(admin_user)
-        pending_opportunity.free_access_at = timezone.now() - timedelta(hours=1)
-        pending_opportunity.save()
-
-        api_client.force_authenticate(user=user)
-        response = api_client.get("/api/opportunities/")
-        titles = [o["title"] for o in response.data["results"]]
-        assert pending_opportunity.title in titles
-
-    def test_approved_visible_immediately_to_premium_user(self, api_client, admin_user, pending_opportunity, premium_user):
+    def test_approved_visible_immediately(self, api_client, admin_user, pending_opportunity, user):
         pending_opportunity.approve(admin_user)  # published_at = now
 
-        api_client.force_authenticate(user=premium_user)
+        api_client.force_authenticate(user=user)
         response = api_client.get("/api/opportunities/")
         titles = [o["title"] for o in response.data["results"]]
         assert pending_opportunity.title in titles
@@ -72,8 +52,9 @@ class TestVisibility:
         response = api_client.get(f"/api/opportunities/{pending_opportunity.id}/")
         assert response.status_code == 200
 
-    def test_other_user_cannot_retrieve_someone_elses_pending(self, api_client, premium_user, pending_opportunity):
-        api_client.force_authenticate(user=premium_user)
+    def test_other_user_cannot_retrieve_someone_elses_pending(self, api_client, pending_opportunity):
+        other = User.objects.create_user(email="other@example.com", name="Other", password="testpass123")
+        api_client.force_authenticate(user=other)
         response = api_client.get(f"/api/opportunities/{pending_opportunity.id}/")
         assert response.status_code == 404
 
@@ -117,8 +98,6 @@ class TestModeration:
 class TestSaving:
     def test_save_and_list_saved(self, api_client, user, admin_user, pending_opportunity):
         pending_opportunity.approve(admin_user)
-        pending_opportunity.free_access_at = timezone.now() - timedelta(hours=1)
-        pending_opportunity.save()
 
         api_client.force_authenticate(user=user)
         save_response = api_client.post(f"/api/opportunities/{pending_opportunity.id}/save/")
@@ -147,12 +126,12 @@ class TestSetupCategories:
 
         call_command("setup_categories", stdout=StringIO())
         slugs = set(OpportunityCategory.objects.values_list("slug", flat=True))
-        assert {"scholarships", "fellowships", "jobs", "grants"} <= slugs
+        assert {"engineering-tech", "business-finance", "ngo-development", "other"} <= slugs
 
-        OpportunityCategory.objects.filter(slug="jobs").update(name="Careers")
+        OpportunityCategory.objects.filter(slug="other").update(name="Everything else")
         call_command("setup_categories", stdout=StringIO())
         assert OpportunityCategory.objects.count() == len(slugs)
-        assert OpportunityCategory.objects.get(slug="jobs").name == "Careers"   # admin edit kept
+        assert OpportunityCategory.objects.get(slug="other").name == "Everything else"   # admin edit kept
 
 
 @pytest.mark.django_db

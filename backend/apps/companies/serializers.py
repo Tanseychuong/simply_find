@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.opportunities.models import Opportunity, OpportunityCategory
+from apps.opportunities.serializers import ROLE_FIELDS, EntryLevelRulesMixin
 from apps.opportunities.sections import KINDS, clean_sections, text_to_blocks
 
 from .models import Application, ApplicationAnswer, ApplicationRequirement, Company, CompanyInvitation, CompanyMembership
@@ -78,7 +79,7 @@ class SubmittedSectionSerializer(serializers.Serializer):
     body = serializers.CharField(max_length=5000, allow_blank=True, trim_whitespace=True)
 
 
-class CompanyJobCreateSerializer(serializers.ModelSerializer):
+class CompanyJobCreateSerializer(EntryLevelRulesMixin, serializers.ModelSerializer):
     category = serializers.PrimaryKeyRelatedField(queryset=OpportunityCategory.objects.filter(is_active=True))
     sections = SubmittedSectionSerializer(many=True, required=False)
     requirements = RequirementSerializer(many=True, required=False, max_length=30)
@@ -88,7 +89,7 @@ class CompanyJobCreateSerializer(serializers.ModelSerializer):
         fields = [
             "title", "description", "location", "opportunity_url", "application_deadline",
             "category", "sections", "application_method", "requirements",
-        ]
+        ] + ROLE_FIELDS
 
     def validate_sections(self, value):
         return clean_sections([
@@ -121,7 +122,7 @@ class CompanyJobSerializer(serializers.ModelSerializer):
             "id", "title", "description", "sections", "location", "category", "category_id", "status",
             "rejection_reason", "application_method", "opportunity_url", "application_deadline",
             "published_at", "submitted_at", "is_open", "application_count", "requirements", "flagged_terms",
-        ]
+        ] + ROLE_FIELDS
         read_only_fields = fields
 
     def get_flagged_terms(self, obj):
@@ -203,16 +204,42 @@ class AnswerSerializer(serializers.ModelSerializer):
         return bool(obj.file)
 
 
-class ApplicantSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    name = serializers.CharField()
-    email = serializers.EmailField()
+CONTACT_VISIBLE_STATUSES = {Application.Status.SHORTLISTED, Application.Status.HIRED}
+
+
+def applicant_for_company(application) -> dict:
+    """Who applied, as the hiring team sees them. Contact details stay
+    hidden until the team shortlists the applicant, so companies judge the
+    application first, and nobody harvests a list of student emails by
+    posting a role."""
+    from apps.profiles.models import StudentProfile
+    from apps.profiles.serializers import ApplicantProfileSerializer, CredentialSerializer
+
+    visible = application.status in CONTACT_VISIBLE_STATUSES
+    user = application.applicant
+    try:
+        profile = user.student_profile
+    except StudentProfile.DoesNotExist:
+        profile = None
+    return {
+        "id": user.pk,
+        "name": user.name,
+        "email": user.email if visible else None,
+        "phone": (profile.phone or None) if visible and profile else None,
+        "contact_visible": visible,
+        # Studies, skills and certificates; never date of birth.
+        "profile": ApplicantProfileSerializer(profile).data if profile else None,
+        "credentials": [
+            {k: c[k] for k in ("provider", "title", "issuer", "url", "issued_on", "check_status")}
+            for c in CredentialSerializer(user.credentials.all(), many=True).data
+        ],
+    }
 
 
 class CompanyApplicationSerializer(serializers.ModelSerializer):
     """An application as the hiring company sees it."""
 
-    applicant = ApplicantSerializer(read_only=True)
+    applicant = serializers.SerializerMethodField()
     answers = AnswerSerializer(many=True, read_only=True)
     job_title = serializers.CharField(source="opportunity.title", read_only=True)
 
@@ -220,6 +247,9 @@ class CompanyApplicationSerializer(serializers.ModelSerializer):
         model = Application
         fields = ["id", "job_title", "applicant", "status", "company_note", "submitted_at", "answers"]
         read_only_fields = ["id", "job_title", "applicant", "submitted_at", "answers"]
+
+    def get_applicant(self, obj) -> dict:
+        return applicant_for_company(obj)
 
     def validate_status(self, value):
         if value == Application.Status.WITHDRAWN:

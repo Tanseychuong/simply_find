@@ -1,8 +1,8 @@
 """
-Shared fixtures. One user fixture per access tier (free/premium/moderator/
-admin) so tests read as "given a <tier> user" rather than constructing
-users inline everywhere — and so a change to how a tier is granted
-(e.g. premium expiry logic) only needs updating here.
+Shared fixtures. One user fixture per access tier (user/moderator/admin)
+so tests read as "given a <tier> user" rather than constructing users
+inline everywhere, and a change to how a tier is granted only needs
+updating here.
 """
 
 import pytest
@@ -22,11 +22,21 @@ def _reset_throttles():
 
 
 @pytest.fixture(autouse=True)
-def _premium_enabled(settings):
-    # Premium is frozen by default in production; the existing tests cover
-    # the early-access rules, so they run with it on. Frozen-mode tests
-    # flip it back off (tests/test_premium_frozen.py).
-    settings.PREMIUM_ENABLED = True
+def _no_virus_scanner(settings):
+    # No ClamAV in tests; the scanner tests (test_uploads.py) fake one.
+    settings.CLAMAV_HOST = ""
+    settings.VIRUS_SCAN_REQUIRED = False
+
+
+@pytest.fixture(autouse=True)
+def _auth_gates_off(settings):
+    # Most tests sign in with force_authenticate and an unconfirmed email.
+    # Email verification and two-step sign-in have their own tests
+    # (test_auth_hardening.py), which switch these back on.
+    settings.REQUIRE_VERIFIED_EMAIL = False
+    settings.REQUIRE_MFA_FOR_STAFF_AND_COMPANIES = False
+    # Older tests apply without a profile; test_profiles.py turns this on.
+    settings.REQUIRE_ELIGIBILITY_TO_APPLY = False
 
 
 @pytest.fixture(autouse=True)
@@ -58,14 +68,6 @@ def category(db):
 @pytest.fixture
 def user(db):
     return User.objects.create_user(email="user@example.com", name="Test User", password="testpass123")
-
-
-@pytest.fixture
-def premium_user(db):
-    return User.objects.create_user(
-        email="premium@example.com", name="Premium User",
-        password="testpass123", is_premium=True,
-    )
 
 
 @pytest.fixture

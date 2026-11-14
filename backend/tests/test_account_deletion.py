@@ -43,7 +43,7 @@ class TestRequestingDeletion:
 
     def test_existing_token_stops_working(self, api_client, user):
         token = api_client.post("/api/auth/login/", {"email": user.email, "password": "testpass123"},
-                                format="json").data["access"]
+                                format="json").cookies["sf_access"].value
         _request(api_client, user)
         api_client.force_authenticate(None)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
@@ -75,7 +75,6 @@ class TestPurging:
 
     def test_deletes_everything_after_the_hold(self, api_client, user, category, settings,
                                                django_capture_on_commit_callbacks):
-        settings.PREMIUM_ENABLED = False
         listing = Opportunity.objects.create(title="Mine", description="x", category=category, posted_by=user)
         # an application with a stored file
         owner = User.objects.create_user(email="hr@x.test", name="HR", password="testpass123")
@@ -86,7 +85,7 @@ class TestPurging:
         req = job.requirements.create(label="CV", kind="file")
         api_client.force_authenticate(user)
         api_client.post("/api/applications/", {"opportunity": job.pk, "consent": "true",
-                                               f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF")},
+                                               f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF-1.4 cv")},
                         format="multipart")
         stored = ApplicationAnswer.objects.get().file.path
         assert os.path.exists(stored)

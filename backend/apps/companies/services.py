@@ -5,13 +5,18 @@ path (including the emails each action sends).
 """
 
 import re
-from pathlib import Path
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
+from apps.accounts.verification import require_verified_email
+from apps.documents.models import Document
+from apps.documents.services import copy_for_application
+from apps.documents.uploads import clean_upload_or_400
 from apps.opportunities.models import Opportunity
+from apps.profiles.eligibility import reasons_not_eligible
 
 from . import notifications
 from .models import (
@@ -20,8 +25,6 @@ from .models import (
 
 Role = CompanyMembership.Role
 
-MAX_UPLOAD_BYTES = 5 * 1024 * 1024
-ALLOWED_UPLOAD_SUFFIXES = {".pdf", ".doc", ".docx", ".odt", ".txt", ".png", ".jpg", ".jpeg"}
 YES_NO = {"yes", "no"}
 
 # Application questions about protected characteristics are unlawful to ask
@@ -179,6 +182,8 @@ def accept_invitation(invitation: CompanyInvitation, user) -> CompanyMembership:
     invitation.accepted_at = timezone.now()
     invitation.accepted_by = user
     invitation.save(update_fields=["accepted_at", "accepted_by"])
+    from apps.accounts.verification import mark_verified
+    mark_verified(user)  # the single-use link was emailed to this address
     return membership
 
 
@@ -336,30 +341,41 @@ def update_job(job: Opportunity, company: Company, data, requirements=None) -> O
     # An edit must not re-date a live job (it would jump back to the top of
     # the feed and restart the early-access window), so keep its timestamps.
     was_live = job.status == Opportunity.Status.APPROVED
-    published_at, free_access_at = job.published_at, job.free_access_at
+    published_at = job.published_at
     job.status = Opportunity.Status.PENDING
     job.rejection_reason = ""
     job.save()
     _publish_or_hold(job, company, list(job.requirements.values("label", "help_text")))
     if was_live and job.status == Opportunity.Status.APPROVED and published_at:
-        job.published_at, job.free_access_at = published_at, free_access_at
-        job.save(update_fields=["published_at", "free_access_at"])
+        job.published_at = published_at
+        job.save(update_fields=["published_at"])
     return job
 
 
 # --- Applications ------------------------------------------------------------
 
-def _clean_answer(req: ApplicationRequirement, raw, upload):
+def _vault_document(user, raw, field):
+    """`vault:<id>` picks a document already in the applicant's vault."""
+    try:
+        pk = int(str(raw).split(":", 1)[1])
+    except (IndexError, ValueError):
+        raise ValidationError({field: "Pick one of your documents."})
+    document = Document.objects.filter(owner=user, pk=pk).first()
+    if document is None:
+        raise ValidationError({field: "Pick one of your documents."})
+    return document
+
+
+def _clean_answer(req: ApplicationRequirement, raw, upload, user=None):
     kind = req.kind
     if kind == ApplicationRequirement.Kind.FILE:
         if not upload:
+            if user is not None and str(raw or "").startswith("vault:"):
+                return _vault_document(user, raw, f"answer_{req.pk}")
             return None
-        suffix = Path(upload.name).suffix.lower()
-        if suffix not in ALLOWED_UPLOAD_SUFFIXES:
-            raise ValidationError({f"answer_{req.pk}": f"Upload a {', '.join(sorted(ALLOWED_UPLOAD_SUFFIXES))} file."})
-        if upload.size > MAX_UPLOAD_BYTES:
-            raise ValidationError({f"answer_{req.pk}": "Files must be 5 MB or smaller."})
-        return upload
+        # Real type from the bytes, PDF/JPG/PNG only, scripts refused,
+        # images re-encoded, virus-scanned (apps/documents/uploads.py).
+        return clean_upload_or_400(upload, f"answer_{req.pk}")
 
     value = (raw or "").strip()
     if not value:
@@ -385,6 +401,7 @@ def _truthy(value) -> bool:
 def submit_application(user, opportunity: Opportunity, data, files) -> Application:
     """`data`/`files` carry one `answer_<requirement id>` entry per requirement,
     plus `consent`: the applicant's agreement to share them with the company."""
+    require_verified_email(user)
     if opportunity.application_method != Opportunity.ApplicationMethod.IN_APP:
         raise ValidationError({"detail": "This job takes applications on the company's own site."})
     if not opportunity.is_visible_to(user) or not opportunity.is_open:
@@ -393,13 +410,17 @@ def submit_application(user, opportunity: Opportunity, data, files) -> Applicati
         raise ValidationError({"detail": "You can't apply to your own company's job."})
     if Application.objects.filter(opportunity=opportunity, applicant=user).exists():
         raise ValidationError({"detail": "You've already applied to this job."})
+    if settings.REQUIRE_ELIGIBILITY_TO_APPLY:
+        reasons = reasons_not_eligible(user, opportunity)
+        if reasons:
+            raise ValidationError({"detail": reasons[0], "eligibility": reasons})
     if not _truthy(data.get("consent")):
         raise ValidationError({"consent": "Please agree to share your application with the company."})
 
     answers, missing = [], {}
     for req in opportunity.requirements.all():
         key = f"answer_{req.pk}"
-        cleaned = _clean_answer(req, data.get(key), files.get(key))
+        cleaned = _clean_answer(req, data.get(key), files.get(key), user)
         if cleaned is None:
             if req.required:
                 missing[key] = "This is required."
@@ -415,9 +436,12 @@ def submit_application(user, opportunity: Opportunity, data, files) -> Applicati
         raise ValidationError({"detail": "You've already applied to this job."})
     for req, cleaned in answers:
         answer = ApplicationAnswer(application=application, requirement=req, label=req.label, kind=req.kind)
-        if req.kind == ApplicationRequirement.Kind.FILE:
-            answer.original_filename = Path(cleaned.name).name[:255]
-            answer.file.save(cleaned.name, cleaned, save=False)
+        if isinstance(cleaned, Document):
+            content, answer.original_filename = copy_for_application(cleaned)
+            answer.file.save(content.name, content, save=False)
+        elif req.kind == ApplicationRequirement.Kind.FILE:
+            answer.original_filename = cleaned.original_name
+            answer.file.save(cleaned.file.name, cleaned.file, save=False)
         else:
             answer.value = cleaned
         answer.save()

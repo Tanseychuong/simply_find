@@ -5,13 +5,13 @@ from unittest.mock import Mock, patch
 import pytest
 from django.core.management import call_command
 
-from apps.ingestion.classify import find_deadline, guess_category
+from apps.ingestion.classify import find_deadline
 from apps.ingestion.connectors.job_boards import (
     AshbyConnector, GreenhouseConnector, WorkableConnector, board_name,
 )
 from apps.ingestion.models import FetchSource
 from apps.ingestion.services import fetch_source as run_fetch
-from apps.opportunities.models import Opportunity, OpportunityCategory
+from apps.opportunities.models import Opportunity
 
 GREENHOUSE = {"jobs": [
     {
@@ -48,6 +48,7 @@ def board(db, category):
     def make(connector_type, url, keywords=""):
         return FetchSource.objects.create(
             name="Acme", connector_type=connector_type, url=url, category=category, include_keywords=keywords,
+            role_type="entry_level",  # these tests are about fetching, not sorting roles
         )
     return make
 
@@ -113,26 +114,6 @@ class TestFindDeadline:
     def test_none(self, text):
         assert find_deadline(text) is None
 
-
-@pytest.mark.django_db
-class TestGuessCategory:
-    @pytest.fixture
-    def cats(self):
-        return {slug: OpportunityCategory.objects.create(slug=slug, name=slug)
-                for slug in ("scholarships", "fellowships", "jobs", "grants")}
-
-    @pytest.mark.parametrize("item, slug", [
-        ({"categories": ["Africa", "Masters", "Scholarships"], "title": "DAAD Programme"}, "scholarships"),
-        ({"categories": ["Africa"], "title": "Knight Journalism Fellowship 2027"}, "fellowships"),
-        ({"categories": [], "title": "UNU Junior Fellows Internship"}, "fellowships"),
-        ({"title": "Call for Proposals: Cities Fund"}, "grants"),
-        ({"title": "Accounts Clerk Vacancy"}, "jobs"),
-    ])
-    def test_matches(self, cats, item, slug):
-        assert guess_category(item, None, cats).slug == slug
-
-    def test_falls_back_to_default(self, cats):
-        assert guess_category({"title": "Japan Youth Summit"}, cats["fellowships"], cats) == cats["fellowships"]
 
 
 @pytest.mark.django_db

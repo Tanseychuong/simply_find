@@ -47,6 +47,16 @@ class FetchSource(models.Model):
                   "(e.g. 'Ghana, Nigeria, Kenya, Africa, Remote'). Blank keeps everything.",
     )
 
+    # The kind of role this source lists. Blank = a mixed feed, sorted per
+    # item (apps/ingestion/classify.py); items that aren't for students or
+    # recent graduates are dropped either way.
+    role_type = models.CharField(
+        max_length=20, blank=True, default="",
+        choices=[("", "Mixed: decide per item"), ("internship", "Internships"),
+                 ("graduate_programme", "Graduate programmes"), ("entry_level", "Entry-level roles"),
+                 ("graduate_school", "Graduate school programmes")],
+    )
+
     # Every fetched opportunity needs a category — this is the default
     # applied to everything this source produces, since most feeds don't
     # self-describe into our category scheme.
@@ -123,6 +133,8 @@ class FetchLog(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices)
     items_found = models.PositiveIntegerField(default=0)
     items_created = models.PositiveIntegerField(default=0)
+    # Items dropped because they aren't student or recent-graduate roles.
+    items_skipped = models.PositiveIntegerField(default=0)
     error_message = models.TextField(blank=True)
 
     class Meta:

@@ -30,7 +30,7 @@ owners change roles. A company always keeps at least one owner.
 from pathlib import Path
 
 from django.db.models import Count, Q
-from django.http import FileResponse, Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -39,13 +39,18 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.documents.services import log_access, stream
+
+from apps.accounts.mfa import require_mfa
+from apps.accounts.verification import require_verified_email
 from apps.opportunities.models import Opportunity
 from apps.opportunities.permissions import CanVerifyOpportunity
 from apps.opportunities.serializers import OpportunitySerializer
 from apps.opportunities.services import list_visible_opportunities
 from apps.opportunities.views import OpportunityViewSet
 
-from .models import Application, ApplicationAnswer, Company, CompanyInvitation, CompanyMembership
+from . import recruiting
+from .models import Application, ApplicationAnswer, Company, CompanyInvitation, CompanyMembership, ExportLog
 from .serializers import (
     CompanyApplicationSerializer,
     CompanyInvitationSerializer,
@@ -77,22 +82,25 @@ from .services import (
 )
 
 MAX_LOGO_BYTES = 2 * 1024 * 1024
-LOGO_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
 
 
-def _membership(user) -> CompanyMembership:
-    membership = CompanyMembership.for_user(user)
+def _membership(request) -> CompanyMembership:
+    """The signed-in person's team membership. Company tools reach
+    applicants' personal data, so the session must have passed two-step
+    sign-in (apps/accounts/mfa.py)."""
+    membership = CompanyMembership.for_user(request.user)
     if membership is None:
         raise NotFound("You're not on a company's team yet.")
+    require_mfa(request)
     return membership
 
 
-def _my_company(user) -> Company:
-    return _membership(user).company
+def _my_company(request) -> Company:
+    return _membership(request).company
 
 
-def _profile_manager(user) -> CompanyMembership:
-    membership = _membership(user)
+def _profile_manager(request) -> CompanyMembership:
+    membership = _membership(request)
     if not membership.can_manage:
         raise PermissionDenied("Only owners and admins can change the company profile.")
     return membership
@@ -105,11 +113,11 @@ def _owner_view(company, membership):
     return data
 
 
-def _hiring_company(user) -> Company:
+def _hiring_company(request) -> Company:
     """For endpoints that expose applicants' personal data: only an approved
     company may read or act on applications. A suspended or rejected company
     keeps its records (restored if reinstated) but can't open them."""
-    company = _my_company(user)
+    company = _my_company(request)
     if company.status != Company.Status.APPROVED:
         raise PermissionDenied("Applications are unavailable while your company account is not approved.")
     return company
@@ -129,6 +137,7 @@ class CompanyRegisterView(APIView):
     throttle_scope = "company_signup"
 
     def post(self, request):
+        require_verified_email(request.user)
         serializer = CompanyOwnerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         company = register_company(request.user, serializer.validated_data)
@@ -140,11 +149,11 @@ class MyCompanyView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        membership = _membership(request.user)
+        membership = _membership(request)
         return Response(_owner_view(membership.company, membership))
 
     def patch(self, request):
-        membership = _profile_manager(request.user)
+        membership = _profile_manager(request)
         serializer = CompanyOwnerSerializer(membership.company, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         company = update_company(membership.company, serializer.validated_data)
@@ -161,22 +170,18 @@ class CompanyLogoView(APIView):
 
     def post(self, request):
         from django.core.files.storage import default_storage
-        from PIL import Image, UnidentifiedImageError
 
-        membership = _profile_manager(request.user)
+        from apps.documents.uploads import IMAGE_TYPES, clean_upload_or_400
+
+        membership = _profile_manager(request)
         company = membership.company
         upload = request.FILES.get("logo")
         if not upload:
             raise ValidationError({"logo": "Choose an image to upload."})
-        suffix = Path(upload.name).suffix.lower()
-        if suffix not in LOGO_SUFFIXES or upload.size > MAX_LOGO_BYTES:
-            raise ValidationError({"logo": "Upload a PNG, JPG or WebP image up to 2 MB."})
-        try:
-            Image.open(upload).verify()  # reject files that only pretend to be images
-        except (UnidentifiedImageError, OSError):
-            raise ValidationError({"logo": "That file isn't a valid image."})
-        upload.seek(0)
-        name = default_storage.save(f"company_logos/{company.slug}{suffix}", upload)
+        # Re-encoded (metadata stripped, at most 800px) and virus-scanned.
+        logo = clean_upload_or_400(upload, "logo", allowed=IMAGE_TYPES, max_bytes=MAX_LOGO_BYTES, max_image_side=800)
+        suffix = Path(logo.file.name).suffix
+        name = default_storage.save(f"company_logos/{company.slug}{suffix}", logo.file)
         url = default_storage.url(name)
         company.logo_url = url if url.startswith("http") else request.build_absolute_uri(url)
         company.save(update_fields=["logo_url", "updated_at"])
@@ -191,11 +196,11 @@ class MyJobsView(APIView):
         return super().get_throttles() if self.throttle_scope else []
 
     def get(self, request):
-        jobs = _job_queryset(_my_company(request.user)).order_by("-submitted_at")
+        jobs = _job_queryset(_my_company(request)).order_by("-submitted_at")
         return Response(CompanyJobSerializer(jobs, many=True).data)
 
     def post(self, request):
-        company = _my_company(request.user)
+        company = _my_company(request)
         serializer = CompanyJobCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = dict(serializer.validated_data)
@@ -212,11 +217,11 @@ class MyJobDetailView(APIView):
         return super().get_throttles() if self.throttle_scope else []
 
     def get(self, request, pk):
-        job = get_object_or_404(_job_queryset(_my_company(request.user)), pk=pk)
+        job = get_object_or_404(_job_queryset(_my_company(request)), pk=pk)
         return Response(CompanyJobSerializer(job).data)
 
     def patch(self, request, pk):
-        company = _my_company(request.user)
+        company = _my_company(request)
         job = get_object_or_404(Opportunity, pk=pk, company=company)
         serializer = CompanyJobUpdateSerializer(job, data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -230,7 +235,7 @@ class CloseJobView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        company = _my_company(request.user)
+        company = _my_company(request)
         job = get_object_or_404(Opportunity, pk=pk, company=company)
         job.application_deadline = timezone.now()
         job.save(update_fields=["application_deadline"])
@@ -242,12 +247,63 @@ class JobApplicationsView(generics.ListAPIView):
     serializer_class = CompanyApplicationSerializer
 
     def get_queryset(self):
-        job = get_object_or_404(Opportunity, pk=self.kwargs["pk"], company=_hiring_company(self.request.user))
-        return (
-            job.applications.exclude(status=Application.Status.WITHDRAWN)
-            .select_related("applicant", "opportunity")
-            .prefetch_related("answers")
-        )
+        job = get_object_or_404(Opportunity, pk=self.kwargs["pk"], company=_hiring_company(self.request))
+        return _applications_for(job, self.request.query_params)
+
+
+def _applications_for(job, params):
+    queryset = (
+        job.applications.exclude(status=Application.Status.WITHDRAWN)
+        .select_related("applicant", "opportunity__company", "applicant__student_profile__field")
+        .prefetch_related("answers", "applicant__credentials")
+    )
+    return recruiting.filter_applications(queryset, params)
+
+
+class JobApplicationsBulkView(APIView):
+    """POST {"ids": [...], "status": "shortlisted"}: each applicant is emailed."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        job = get_object_or_404(Opportunity, pk=pk, company=_hiring_company(request))
+        changed = recruiting.bulk_set_status(job, request.data.get("ids"), request.data.get("status"))
+        return Response({"changed": changed})
+
+
+class _JobExportView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "exports"
+    export_format = ""
+
+    def get(self, request, pk):
+        company = _hiring_company(request)
+        job = get_object_or_404(Opportunity.objects.select_related("company"), pk=pk, company=company)
+        applications = list(_applications_for(job, request.query_params))
+        recruiting.log_export(request, company, job, self.export_format, len(applications),
+                              request.query_params.dict())
+        response = self.render(job, applications)
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+
+class JobApplicationsCsvView(_JobExportView):
+    export_format = ExportLog.Format.CSV
+
+    def render(self, job, applications):
+        response = HttpResponse(recruiting.to_csv(applications), content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="applicants-{job.pk}.csv"'
+        return response
+
+
+class JobApplicationsPrintView(_JobExportView):
+    export_format = ExportLog.Format.PRINT
+
+    def render(self, job, applications):
+        response = HttpResponse(recruiting.to_print_html(job, applications), content_type="text/html; charset=utf-8")
+        response["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'"
+        return response
 
 
 class CompanyApplicationUpdateView(generics.UpdateAPIView):
@@ -257,7 +313,7 @@ class CompanyApplicationUpdateView(generics.UpdateAPIView):
 
     def get_queryset(self):
         return (
-            Application.objects.filter(opportunity__company=_hiring_company(self.request.user))
+            Application.objects.filter(opportunity__company=_hiring_company(self.request))
             .exclude(status=Application.Status.WITHDRAWN)
             .select_related("applicant", "opportunity__company")
         )
@@ -272,7 +328,7 @@ class TeamView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        membership = _membership(request.user)
+        membership = _membership(request)
         company = membership.company
         members = company.memberships.select_related("user", "invited_by")
         invitations = (company.invitations.filter(accepted_at=None, expires_at__gt=timezone.now())
@@ -291,7 +347,7 @@ class TeamInvitationsView(APIView):
     throttle_scope = "company_invites"
 
     def post(self, request):
-        membership = _membership(request.user)
+        membership = _membership(request)
         serializer = InviteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         invitation, _token = invite_member(membership.company, membership, **serializer.validated_data)
@@ -302,7 +358,7 @@ class TeamInvitationDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, pk):
-        membership = _membership(request.user)
+        membership = _membership(request)
         invitation = get_object_or_404(CompanyInvitation, pk=pk, company=membership.company, accepted_at=None)
         revoke_invitation(invitation, membership)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -312,7 +368,7 @@ class TeamMemberDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def _target(self, request, pk):
-        membership = _membership(request.user)
+        membership = _membership(request)
         target = get_object_or_404(CompanyMembership.objects.select_related("user", "company"),
                                    pk=pk, company=membership.company)
         return membership, target
@@ -419,6 +475,7 @@ class MyApplicationsView(APIView):
         return Response(MyApplicationSerializer(apps, many=True).data)
 
     def post(self, request):
+        require_verified_email(request.user)
         try:
             opportunity_id = int(request.data.get("opportunity"))
         except (TypeError, ValueError):
@@ -461,9 +518,13 @@ class AnswerFileView(APIView):
         )
         if not answer.file:
             raise Http404
-        response = FileResponse(
-            answer.file.open("rb"), as_attachment=True, filename=answer.original_filename or "attachment",
-        )
-        response["Cache-Control"] = "private, no-store"
-        response["X-Content-Type-Options"] = "nosniff"
-        return response
+        application = answer.application
+        if application.applicant_id != request.user.pk:
+            require_mfa(request)  # the hiring team: applicants' documents need two-step sign-in
+            # The applicant can see who opened their files (GET /api/profile/access-log/).
+            log_access(
+                request, owner=application.applicant, answer=answer,
+                company=application.opportunity.company,
+                label=f"{answer.label}: {application.opportunity.title}",
+            )
+        return stream(answer.file, answer.original_filename)

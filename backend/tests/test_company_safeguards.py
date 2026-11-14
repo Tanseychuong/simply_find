@@ -6,7 +6,6 @@ import io
 import os
 from datetime import timedelta
 
-import pytest
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
@@ -17,7 +16,7 @@ from apps.companies.services import flagged_terms, review_company
 from apps.opportunities.models import Opportunity
 
 # Shared fixtures/helpers (pytest picks up imported fixtures).
-from tests.test_companies import _company, _job_payload, _premium_frozen, live_job, owner, owner_client  # noqa: F401
+from tests.test_companies import _company, _job_payload, _temp_uploads, live_job, owner, owner_client  # noqa: F401
 
 
 def _apply(client, job, **override):
@@ -204,13 +203,3 @@ class TestRetention:
         Opportunity.objects.filter(pk=live_job.pk).update(application_deadline=timezone.now() - timedelta(days=31))
         call_command("prune_applications")
         assert Application.objects.count() == 0
-
-
-@pytest.mark.parametrize("storages_same, debug, expected", [(True, False, 1), (False, False, 0), (True, True, 0)])
-def test_deploy_check_warns_when_cvs_share_public_storage(settings, storages_same, debug, expected):
-    from apps.companies.checks import application_files_are_private
-    public = {"BACKEND": "x"}
-    settings.DEBUG = debug
-    settings.STORAGES = {**settings.STORAGES, "default": public,
-                         "applications": public if storages_same else {"BACKEND": "y"}}
-    assert len(application_files_are_private(None)) == expected

@@ -46,7 +46,7 @@ class TestPagesRender:
 
     def test_status_pill_in_queue(self, admin_user, pending):
         body = _client(admin_user).get(reverse("admin:opportunities_opportunity_changelist")).content.decode()
-        assert 'eel-pill--warn">Pending' in body
+        assert 'sf-pill--warn">Pending' in body
 
 
 @pytest.mark.django_db
@@ -59,15 +59,15 @@ class TestModerationActions:
     def test_approve_skips_already_approved(self, admin_user, category, pending):
         live = Opportunity.objects.create(category=category, title="Live", description="d")
         live.approve(admin_user)
-        earlier_free_access = live.free_access_at - timedelta(days=1)
-        Opportunity.objects.filter(pk=live.pk).update(free_access_at=earlier_free_access)
+        earlier = live.published_at - timedelta(days=1)
+        Opportunity.objects.filter(pk=live.pk).update(published_at=earlier)
 
         self._act(_client(admin_user), "approve_opportunities", pending.pk, live.pk)
 
         pending.refresh_from_db()
         live.refresh_from_db()
-        assert pending.status == Opportunity.Status.APPROVED and pending.free_access_at is not None
-        assert live.free_access_at == earlier_free_access   # early-access window not reset
+        assert pending.status == Opportunity.Status.APPROVED and pending.published_at is not None
+        assert live.published_at == earlier   # publish date not reset
 
     def test_actions_hidden_without_verify_permission(self, category, pending):
         staff = User.objects.create_user(email="staff@example.com", name="Staff", password="x", is_staff=True)
@@ -90,6 +90,7 @@ class TestChangeFormStatus:
             "location": "", "opportunity_url": "", "application_deadline_0": "", "application_deadline_1": "",
             "image_url": "", "posted_by": "", "source_type": opp.source_type, "fetch_source": "",
             "status": opp.status, "rejection_reason": "",
+            "role_type": opp.role_type, "experience_years_max": opp.experience_years_max, "is_paid": "unknown",
         }
         data.update(overrides)
         return client.post(reverse("admin:opportunities_opportunity_change", args=[opp.pk]), data)
@@ -100,7 +101,7 @@ class TestChangeFormStatus:
         assert response.status_code == 302
         pending.refresh_from_db()
         assert pending.status == Opportunity.Status.APPROVED
-        assert pending.published_at is not None and pending.free_access_at is not None
+        assert pending.published_at is not None
         assert pending.reviewed_by == moderator_user
 
     def test_setting_rejected_records_reason(self, admin_user, pending):
@@ -116,16 +117,3 @@ class TestChangeFormStatus:
         pending.refresh_from_db()
         assert pending.status == Opportunity.Status.PENDING
 
-
-@pytest.mark.django_db
-class TestUserPremiumActions:
-    def test_grant_and_revoke(self, admin_user, user):
-        client = _client(admin_user)
-        url = reverse("admin:accounts_user_changelist")
-        client.post(url, {"action": "grant_premium", "_selected_action": [str(user.pk)]})
-        user.refresh_from_db()
-        assert user.is_premium_active()
-
-        client.post(url, {"action": "revoke_premium", "_selected_action": [str(user.pk)]})
-        user.refresh_from_db()
-        assert not user.is_premium

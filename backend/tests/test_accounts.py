@@ -8,7 +8,8 @@ class TestRegistration:
             "name": "New User", "email": "new@example.com", "password": "StrongPass123!",
         })
         assert response.status_code == 201
-        assert response.data["email"] == "new@example.com"
+        assert response.data["user"]["email"] == "new@example.com"
+        assert response.data["user"]["email_verified"] is False
 
     def test_register_rejects_weak_password(self, api_client):
         response = api_client.post("/api/auth/register/", {
@@ -25,11 +26,14 @@ class TestRegistration:
 
 @pytest.mark.django_db
 class TestLogin:
-    def test_login_returns_tokens(self, api_client, user):
+    def test_login_sets_httponly_cookies_not_body_tokens(self, api_client, user):
         response = api_client.post("/api/auth/login/", {"email": user.email, "password": "testpass123"})
         assert response.status_code == 200
-        assert "access" in response.data
-        assert "refresh" in response.data
+        assert response.data["user"]["email"] == user.email
+        assert "access" not in response.data and "refresh" not in response.data
+        access, refresh = response.cookies["sf_access"], response.cookies["sf_refresh"]
+        assert access["httponly"] and refresh["httponly"]
+        assert refresh["path"] == "/api/auth/"   # the refresh token only goes to auth endpoints
 
     def test_login_wrong_password_fails(self, api_client, user):
         response = api_client.post("/api/auth/login/", {"email": user.email, "password": "wrong"})
@@ -56,11 +60,6 @@ class TestMe:
         assert response.status_code == 200
         assert response.data["email"] == user.email
         assert response.data["role"] == "user"
-
-    def test_me_shows_premium_active(self, api_client, premium_user):
-        api_client.force_authenticate(user=premium_user)
-        response = api_client.get("/api/auth/me/")
-        assert response.data["is_premium_active"] is True
 
     def test_me_shows_admin_role(self, api_client, admin_user):
         api_client.force_authenticate(user=admin_user)
@@ -91,7 +90,7 @@ class TestProfilePicture:
         response = api_client.patch("/api/auth/me/", {"profile_picture": _png()}, format="multipart")
         assert response.status_code == 200
         assert response.data["profile_picture"].startswith("http")
-        assert "profile_pics/avatar" in response.data["profile_picture"]
+        assert "profile_pics/" in response.data["profile_picture"] and "avatar" not in response.data["profile_picture"]
 
     def test_oversized_upload_rejected(self, api_client, user, settings, tmp_path):
         settings.MEDIA_ROOT = tmp_path

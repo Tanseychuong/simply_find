@@ -23,6 +23,8 @@ urlpatterns = [
     path("api/analytics/", include("apps.analytics.urls")),
     path("api/companies/", include("apps.companies.urls")),
     path("api/applications/", include(application_urlpatterns)),
+    path("api/profile/", include("apps.profiles.urls")),
+    path("api/drives/", include("apps.drives.urls")),
 ]
 
 if settings.DEBUG:

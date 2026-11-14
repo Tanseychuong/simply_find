@@ -15,7 +15,7 @@ def fetch_now(modeladmin, request, queryset):
         log = fetch_source(source)
         modeladmin.message_user(
             request,
-            f"{source.name}: {log.status} — found {log.items_found}, created {log.items_created}"
+            f"{source.name}: {log.status} — found {log.items_found}, created {log.items_created}, skipped {log.items_skipped} not for students"
             + (f" — {log.error_message}" if log.error_message else ""),
         )
 
@@ -39,7 +39,7 @@ class FetchSourceAdmin(admin.ModelAdmin):
     readonly_fields = ("last_fetched_at", "consecutive_failures", "last_error", "created_at")
     actions = [fetch_now, fetch_next_cycle]
     fieldsets = (
-        (None, {"fields": ("name", "connector_type", "url", "category", "include_keywords", "is_active")}),
+        (None, {"fields": ("name", "connector_type", "url", "role_type", "category", "include_keywords", "is_active")}),
         ("Automatic schedule", {"fields": ("fetch_interval_minutes", "next_fetch_at", "last_fetched_at")}),
         ("Health", {"fields": ("consecutive_failures", "last_error", "created_at")}),
     )
@@ -63,7 +63,7 @@ class FetchSourceAdmin(admin.ModelAdmin):
 
 @admin.register(FetchLog)
 class FetchLogAdmin(admin.ModelAdmin):
-    list_display = ("source", "status_badge", "items_found", "items_created", "started_at", "duration")
+    list_display = ("source", "status_badge", "items_found", "items_created", "items_skipped", "started_at", "duration")
     list_filter = ("status", "source")
     list_select_related = ("source",)
     date_hierarchy = "started_at"

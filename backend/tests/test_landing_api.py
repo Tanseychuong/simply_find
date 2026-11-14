@@ -20,12 +20,10 @@ def _clear_cache():
 
 
 def _live(category, admin_user, **fields):
-    """An approved opportunity that's already past the early-access window."""
+    """An approved, live opportunity."""
     defaults = {"title": "Listing", "description": "Details.", "organization": "Org"}
     opportunity = Opportunity.objects.create(category=category, **{**defaults, **fields})
     opportunity.approve(admin_user)
-    opportunity.free_access_at = timezone.now() - timedelta(minutes=1)
-    opportunity.save()
     return opportunity
 
 
@@ -43,15 +41,7 @@ class TestStats:
         assert response.data["live"] == 3
         assert response.data["organizations"] == 2
         assert response.data["categories"] == 1
-        assert response.data["early_access_hours"] == 48
 
-    def test_premium_sees_early_access_count(self, api_client, category, admin_user, premium_user):
-        fresh = Opportunity.objects.create(category=category, title="Fresh", description="x")
-        fresh.approve(admin_user)  # free users wait 48h for this one
-
-        assert api_client.get("/api/opportunities/stats/").data["live"] == 0
-        api_client.force_authenticate(user=premium_user)
-        assert api_client.get("/api/opportunities/stats/").data["live"] == 1
 
 
 @pytest.mark.django_db
@@ -132,6 +122,5 @@ class TestFeed:
 def test_public_listing_does_not_expose_poster_email(api_client, admin_user, category):
     opp = Opportunity.objects.create(category=category, title="Mine", description="d", posted_by=admin_user)
     opp.approve(admin_user)
-    Opportunity.objects.filter(pk=opp.pk).update(free_access_at=opp.published_at)
     body = api_client.get(f"/api/opportunities/{opp.pk}/").json()
     assert body["posted_by"] == {"id": admin_user.pk, "name": "Admin", "profile_picture": None}

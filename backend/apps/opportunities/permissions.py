@@ -18,8 +18,12 @@ class CanVerifyOpportunity(permissions.BasePermission):
     granted the permission directly)."""
 
     def has_permission(self, request, view):
-        return bool(
+        allowed = bool(
             request.user
             and request.user.is_authenticated
             and request.user.has_perm("opportunities.can_verify_opportunity")
         )
+        if allowed:
+            from apps.accounts.mfa import require_mfa
+            require_mfa(request)  # moderators see unpublished companies and jobs
+        return allowed

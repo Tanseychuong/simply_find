@@ -38,9 +38,9 @@ class TestTrafficSource:
         assert traffic_source("https://t.co/abc", "WhatsApp") == "whatsapp"
 
     def test_no_referrer_or_own_site_is_direct(self, settings):
-        settings.FRONTEND_URL = "https://eel-web.onrender.com"
+        settings.FRONTEND_URL = "https://simplyfind.example"
         assert traffic_source("") == DIRECT
-        assert traffic_source("https://eel-web.onrender.com/opportunities") == DIRECT
+        assert traffic_source("https://simplyfind.example/opportunities") == DIRECT
 
 
 @pytest.mark.django_db

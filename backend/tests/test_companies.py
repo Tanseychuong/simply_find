@@ -1,6 +1,7 @@
 """Company accounts: approval, the verified badge, job posting and in-app applications."""
 
 import pytest
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
@@ -10,9 +11,8 @@ from apps.opportunities.models import Opportunity
 
 
 @pytest.fixture(autouse=True)
-def _premium_frozen(settings, tmp_path):
-    # Everyone sees approved listings straight away; uploads go to a temp dir.
-    settings.PREMIUM_ENABLED = False
+def _temp_uploads(settings, tmp_path):
+    # Uploads go to a temp dir.
     settings.MEDIA_ROOT = tmp_path
     fs = {"BACKEND": "django.core.files.storage.FileSystemStorage"}
     settings.STORAGES = {**settings.STORAGES, "default": fs, "applications": fs}
@@ -154,7 +154,8 @@ class TestApplying:
         apps = owner_client.get(f"/api/companies/me/jobs/{live_job.pk}/applications/")
         assert apps.status_code == 200
         application = apps.data["results"][0] if "results" in apps.data else apps.data[0]
-        assert application["applicant"]["email"] == user.email
+        assert application["applicant"]["email"] is None   # hidden until shortlisted
+        assert application["applicant"]["contact_visible"] is False
         cv = next(a for a in application["answers"] if a["kind"] == "file")
         assert cv["has_file"] and cv["original_filename"] == "cv.pdf"
 
@@ -163,6 +164,7 @@ class TestApplying:
 
         upd = owner_client.patch(f"/api/companies/me/applications/{application['id']}/", {"status": "shortlisted"}, format="json")
         assert upd.status_code == 200 and upd.data["status"] == "shortlisted"
+        assert upd.data["applicant"]["email"] == user.email and upd.data["applicant"]["contact_visible"]
 
     def test_missing_required_answer_is_rejected(self, api_client, user, live_job):
         api_client.force_authenticate(user)
@@ -213,7 +215,7 @@ class TestSitemap:
         res = api_client.get("/sitemap.xml")
         body = res.content.decode()
         assert res.status_code == 200 and res["Content-Type"] == "application/xml"
-        assert f"https://globalopportunities.live/opportunities/{live_job.pk}</loc>" in body
+        assert f"{settings.SITE_URL}/opportunities/{live_job.pk}</loc>" in body
         assert "/companies/acme-ltd</loc>" in body
         assert "/opportunities?category=jobs</loc>" in body
         assert f"/opportunities/{hidden.pk}</loc>" not in body

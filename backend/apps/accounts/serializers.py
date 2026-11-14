@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -13,7 +12,6 @@ class UserSerializer(serializers.ModelSerializer):
     """Read-only representation used by /me and anywhere else a user's
     public info is embedded (e.g. Opportunity.posted_by)."""
 
-    is_premium_active = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
     company = serializers.SerializerMethodField()
     # How the user signs in, so the profile can offer the right confirmation
@@ -23,19 +21,23 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "name", "email", "profile_picture", "is_premium_active", "role", "company",
-                  "has_password", "google_linked", "created_at"]
+        fields = ["id", "name", "email", "email_verified", "mfa_enabled", "mfa_required", "profile_picture",
+                  "role", "company", "has_password", "google_linked", "created_at"]
         read_only_fields = fields
+
+    email_verified = serializers.BooleanField(read_only=True)
+    mfa_enabled = serializers.BooleanField(read_only=True)
+    mfa_required = serializers.SerializerMethodField()
+
+    def get_mfa_required(self, obj) -> bool:
+        from .mfa import mfa_required_for
+        return mfa_required_for(obj)
 
     def get_has_password(self, obj) -> bool:
         return obj.has_usable_password()
 
     def get_google_linked(self, obj) -> bool:
         return bool(obj.google_sub)
-
-    def get_is_premium_active(self, obj) -> bool:
-        # Frozen premium: nobody is shown as Premium, whatever the flag says.
-        return settings.PREMIUM_ENABLED and obj.is_premium_active()
 
     def get_company(self, obj):
         """The company account this user is on the team of, and their role."""
@@ -58,9 +60,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     """Write serializer for a user editing their own profile — deliberately
-    excludes email, password, role/premium fields. Those go through their
+    excludes email, password, role fields. Those go through their
     own dedicated flows (email is the login identity, password has its own
-    change flow, role/premium are admin-only)."""
+    change flow, roles are admin-only)."""
 
     class Meta:
         model = User
@@ -72,10 +74,14 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         return value.strip()
 
     def validate_profile_picture(self, value):
-        # Every upload lands in paid cloud storage — keep them reasonable.
-        if value and value.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
-            raise serializers.ValidationError(f"Image must be {settings.MAX_UPLOAD_MB} MB or smaller.")
-        return value
+        # Re-encoded (no EXIF location data, at most 800px) and virus-scanned.
+        if not value:
+            return value
+        from apps.documents.uploads import IMAGE_TYPES, UploadRejected, clean_upload
+        try:
+            return clean_upload(value, allowed=IMAGE_TYPES, max_image_side=800).file
+        except UploadRejected as exc:
+            raise serializers.ValidationError(exc.message)
 
 
 class RegisterSerializer(serializers.ModelSerializer):

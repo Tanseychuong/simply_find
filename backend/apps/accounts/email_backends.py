@@ -18,7 +18,7 @@ BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email"
 
 
 def _split_address(address):
-    """'EEL <no-reply@x.com>' -> {"name": "EEL", "email": "no-reply@x.com"}."""
+    """'SimplyFind <no-reply@x.com>' -> {"name": "SimplyFind", "email": "no-reply@x.com"}."""
     from email.utils import parseaddr
 
     name, email = parseaddr(address)

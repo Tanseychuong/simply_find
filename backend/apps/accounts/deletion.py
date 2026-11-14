@@ -38,7 +38,7 @@ DELETION_HOLD = timedelta(days=14)
 
 def _email(subject, body, to):
     try:
-        send_mail(subject, body + f"\n\nGlobal Opportunities\n{settings.SITE_URL}",
+        send_mail(subject, body + f"\n\nSimplyFind\n{settings.SITE_URL}",
                   settings.DEFAULT_FROM_EMAIL, [to])
     except Exception:  # noqa: BLE001 - an email failure must not undo or block the deletion
         logger.exception("Could not send account-deletion email")
@@ -58,7 +58,7 @@ def request_deletion(user):
     email, name = user.email, user.name
     transaction.on_commit(lambda: _email(
         "We've received your request to delete your account",
-        f"Hi {name},\n\nYour Global Opportunities account has been deactivated and will be permanently deleted "
+        f"Hi {name},\n\nYour SimplyFind account has been deactivated and will be permanently deleted "
         f"in {days} days, together with the opportunities you posted, your saved listings and your job "
         "applications.\n\nIf you didn't ask for this, or you've changed your mind, reply to this email within "
         f"{days} days and we'll restore your account.",
@@ -129,7 +129,7 @@ def purge_due_accounts(now=None) -> int:
         count += 1
         _email(
             "Your account has been deleted",
-            f"Hi {name},\n\nAs you asked, your Global Opportunities account and the information linked to it "
+            f"Hi {name},\n\nAs you asked, your SimplyFind account and the information linked to it "
             "have now been permanently deleted. If you'd like to come back, you're welcome to register again.",
             email,
         )

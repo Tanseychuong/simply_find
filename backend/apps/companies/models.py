@@ -20,18 +20,14 @@ ApplicationRequirements and applicants answer them in an Application.
 
 import hashlib
 import secrets
-import uuid
 from datetime import timedelta
-from pathlib import Path
 
 from django.conf import settings
-from django.core.files.storage import storages
-from django.core.signals import setting_changed
 from django.db import models
-from django.dispatch import receiver
-from django.utils.functional import LazyObject, empty
 from django.utils import timezone
 from django.utils.text import slugify
+
+from apps.documents.storage import private_files_storage, unguessable_name
 
 
 # Path segments the API and frontend use under /companies/.
@@ -287,33 +283,15 @@ class ApplicationRequirement(models.Model):
         return self.label
 
 
-class _ApplicationStorage(LazyObject):
-    """Resolved on first use, not at import: Django evaluates a field's
-    storage callable once when models load, which would pin whatever
-    STORAGES said at that moment (and ignore test or runtime overrides)."""
-
-    def _setup(self):
-        self._wrapped = storages["applications"]
-
-
-application_files_storage = _ApplicationStorage()
-
-
-@receiver(setting_changed)
-def _reset_application_storage(*, setting, **kwargs):
-    if setting == "STORAGES":
-        application_files_storage._wrapped = empty
-
-
 def application_storage():
-    """Private storage for CVs and other application files (settings.STORAGES['applications'])."""
-    return application_files_storage
+    """Private storage for CVs and other application files (apps/documents/storage.py)."""
+    return private_files_storage
 
 
 def application_file_path(instance, filename):
-    # Unguessable key: the media bucket is public, so the name is the lock.
-    # Files are only ever handed out through the authenticated download view.
-    return f"applications/{uuid.uuid4().hex}{Path(filename).suffix.lower()[:10]}"
+    # Unguessable key; files are only ever handed out through the
+    # authenticated download view.
+    return unguessable_name("applications", filename)
 
 
 class Application(models.Model):
@@ -362,3 +340,30 @@ class ApplicationAnswer(models.Model):
     class Meta:
         ordering = ["pk"]
 
+
+
+class ExportLog(models.Model):
+    """A team member downloaded or printed a job's applicant list. Personal
+    data leaving the site is recorded: who, which job, how many people."""
+
+    class Format(models.TextChoices):
+        CSV = "csv", "CSV"
+        PRINT = "print", "Printable list"
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="exports")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    user_name = models.CharField(max_length=120)
+    opportunity = models.ForeignKey(
+        "opportunities.Opportunity", on_delete=models.SET_NULL, null=True, related_name="+",
+    )
+    job_title = models.CharField(max_length=300)
+    format = models.CharField(max_length=10, choices=Format.choices)
+    row_count = models.PositiveIntegerField()
+    filters = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user_name} exported {self.row_count} from {self.job_title}"
