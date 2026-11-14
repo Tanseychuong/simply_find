@@ -142,6 +142,7 @@ class TestTwoStepSignIn:
         _login(client, user)
         setup = client.post("/api/auth/mfa/setup/", {"password": PASSWORD}, format="json")
         assert setup.status_code == 200 and setup.data["otpauth_uri"].startswith("otpauth://totp/SimplyFind:")
+        assert setup.data["qr_svg"].startswith("<svg")
         assert client.post("/api/auth/mfa/enable/", {"code": "000000"}, format="json").status_code == 400
         enabled = client.post("/api/auth/mfa/enable/", {"code": _code(user)}, format="json")
         assert enabled.status_code == 200 and len(enabled.data["recovery_codes"]) == 10

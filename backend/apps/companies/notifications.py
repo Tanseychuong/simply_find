@@ -18,7 +18,7 @@ from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
-SIGN_OFF = "\n\nGlobal Opportunities\n{site}"
+SIGN_OFF = "\n\nSimplyFind\n{site}"
 
 
 def _send(subject, body, recipients):
@@ -50,8 +50,8 @@ def team_invitation(invitation, token):
     inviter = invitation.invited_by.name if invitation.invited_by else "Someone"
     days = invitation.VALID_FOR.days
     _send(
-        f"{inviter} invited you to {company.name} on Global Opportunities",
-        f"Hi,\n\n{inviter} invited you to join {company.name}'s hiring team on Global Opportunities "
+        f"{inviter} invited you to {company.name} on SimplyFind",
+        f"Hi,\n\n{inviter} invited you to join {company.name}'s hiring team on SimplyFind "
         f"as {invitation.get_role_display().lower()}.\n\n"
         f"Accept the invitation (the link works for {days} days, once):\n"
         f"{settings.SITE_URL}/companies/invite/{token}\n\n"
@@ -64,7 +64,7 @@ def team_invitation(invitation, token):
 def promoted_to_owner(membership, departing_name):
     company = membership.company
     _send(
-        f"You're now an owner of {company.name} on Global Opportunities",
+        f"You're now an owner of {company.name} on SimplyFind",
         f"Hi {membership.user.name},\n\n{departing_name} asked to delete their account, and they were the only "
         f"owner of {company.name}. So that the company isn't left without one, you're now an owner: you can "
         f"manage the team, its roles and the company profile.\n\nDashboard: {settings.SITE_URL}/company",
@@ -76,11 +76,11 @@ def company_reviewed(company):
     """Approved, verified, rejected or suspended."""
     status = company.status
     if status == "approved" and company.is_verified:
-        subject = f"{company.name} is now verified on Global Opportunities"
+        subject = f"{company.name} is now verified on SimplyFind"
         body = (f"Good news: {company.name} has the verified badge. Jobs you post now go live straight away, "
                 "unless a requirement needs a closer look by our team.")
     elif status == "approved":
-        subject = f"{company.name} is approved on Global Opportunities"
+        subject = f"{company.name} is approved on SimplyFind"
         body = (f"Your company profile for {company.name} is approved, so you can now post jobs from your dashboard. "
                 "Each job is checked by a moderator before it goes live.")
     elif status == "rejected":

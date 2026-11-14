@@ -61,11 +61,18 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DEBUG: "True"
         run: python manage.py purge_deleted_accounts
+      # Accounts made at a recruitment drive desk and never claimed by the
+      # student are deleted, with their documents, after 14 days.
+      - name: Delete unclaimed desk signups
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DEBUG: "True"
+        run: python manage.py purge_unclaimed_signups
       # SEO: rebuild the website so new listings get their own pre-rendered
       # page (frontend/scripts/prerender.mjs). Twice a day rather than every
       # run, to stay well inside the host's monthly build minutes; manual runs
       # always rebuild. Needs repo secret RENDER_FRONTEND_DEPLOY_HOOK
-      # (Render -> eel-web -> Settings -> Deploy Hook); skipped while unset.
+      # (Render -> the frontend service -> Settings -> Deploy Hook); skipped while unset.
       - name: Rebuild the website (pre-rendered pages)
         env:
           DEPLOY_HOOK: ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK }}

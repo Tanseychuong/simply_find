@@ -1,5 +1,5 @@
 """
-Django settings for the EEL opportunity portal.
+Django settings for SimplyFind.
 
 Env-driven throughout — same philosophy as the Flask config.py it replaces,
 so dev/test/prod run off different env vars with no code changes.
@@ -17,7 +17,7 @@ if not DEBUG and SECRET_KEY in ("", "dev-secret-change-me", "change-me"):
     # Signing JWTs with a publicly known key would let anyone mint tokens.
     raise RuntimeError("SECRET_KEY must be set to a real secret when DEBUG=False")
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-# Render sets this to the service's public hostname (e.g. eel-api.onrender.com).
+# Render sets this to the service's public hostname (e.g. simplyfind-api.onrender.com).
 if os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
     ALLOWED_HOSTS.append(os.environ["RENDER_EXTERNAL_HOSTNAME"])
 
@@ -27,7 +27,7 @@ if os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
 # ---------------------------------------------------------------------------
 
 INSTALLED_APPS = [
-    "config.apps.EELAdminConfig",   # django.contrib.admin with the EEL dashboard (config/admin_site.py)
+    "config.apps.SimplyFindAdminConfig",   # django.contrib.admin with the SimplyFind dashboard (config/admin_site.py)
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -117,7 +117,7 @@ def _parse_database_url(url: str) -> dict:
     }
 
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://localhost:5432/eel")
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://localhost:5432/simplyfind")
 DATABASES = {"default": _parse_database_url(DATABASE_URL)}
 
 
@@ -229,7 +229,7 @@ INGESTION_WORKER_INTERVAL_SECONDS = int(os.environ.get("INGESTION_WORKER_INTERVA
 INGESTION_SOURCE_BATCH = int(os.environ.get("INGESTION_SOURCE_BATCH", 10))
 INGESTION_ENRICH_BATCH = int(os.environ.get("INGESTION_ENRICH_BATCH", 25))
 INGESTION_USER_AGENT = os.environ.get(
-    "INGESTION_USER_AGENT", "EELBot/1.0 (+https://github.com/Tanseychuong/EEL)"
+    "INGESTION_USER_AGENT", "SimplyFindBot/1.0"
 )
 
 # Public landing-page stats are cached briefly so the homepage doesn't run
@@ -257,13 +257,17 @@ LOGGING = {
 # CORS
 # ---------------------------------------------------------------------------
 
-# The production sites are always allowed. CORS_ALLOWED_ORIGINS (comma-
-# separated) adds more, e.g. a preview deploy; local dev adds the Vite server.
-_PRODUCTION_ORIGINS = [
-    "https://globalopportunities.live",
-    "https://www.globalopportunities.live",
-    "https://eel-web.onrender.com",
-]
+# Canonical public site, used for sitemap.xml and email links (config/seo.py).
+# Production must say where the site lives: email links depend on it.
+SITE_URL = os.environ.get("SITE_URL", "" if not DEBUG else "http://localhost:5173").rstrip("/")
+if not SITE_URL:
+    raise RuntimeError("Set SITE_URL to the public site, e.g. https://simplyfind.example")
+# Where reset-password links and the admin's "View site" link go.
+FRONTEND_URL = os.environ.get("FRONTEND_URL", SITE_URL).rstrip("/")
+
+# The site itself is always allowed. CORS_ALLOWED_ORIGINS (comma-separated)
+# adds more, e.g. a www. alias or a preview deploy; local dev adds Vite.
+_PRODUCTION_ORIGINS = list(dict.fromkeys([SITE_URL, FRONTEND_URL]))
 _extra_origins = [o.strip().rstrip("/") for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
 _dev_origins = ["http://localhost:5173", "http://127.0.0.1:5173"] if DEBUG else []
 CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_PRODUCTION_ORIGINS + _extra_origins + _dev_origins))
@@ -272,10 +276,6 @@ CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_PRODUCTION_ORIGINS + _extra_origins +
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 CORS_ALLOW_CREDENTIALS = True   # the frontend sends the sign-in cookies
 
-# Canonical public site, used for sitemap.xml and email links (config/seo.py).
-SITE_URL = os.environ.get("SITE_URL", "https://globalopportunities.live").rstrip("/")
-# Where reset-password links and the admin's "View site" link go.
-FRONTEND_URL = os.environ.get("FRONTEND_URL", SITE_URL)
 # Render deploy hook for the static site. When set, suspending a company or
 # rejecting a live listing rebuilds the site at once, so its pre-rendered
 # pages come down (config/seo.py: request_site_rebuild).
@@ -301,7 +301,7 @@ EMAIL_BACKEND = (
     else "django.core.mail.backends.console.EmailBackend"
 )
 # Must be a sender address verified in Brevo.
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Global Opportunities <no-reply@localhost>")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "SimplyFind <no-reply@localhost>")
 # How long a password reset link stays valid (seconds).
 PASSWORD_RESET_TIMEOUT = int(os.environ.get("PASSWORD_RESET_TIMEOUT", 3600))
 

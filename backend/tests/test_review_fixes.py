@@ -26,11 +26,9 @@ def _apply(client, job):
 
 
 class TestCors:  # finding 2
-    def test_production_sites_always_allowed_and_env_adds_more(self):
+    def test_the_site_is_always_allowed(self):
         from django.conf import settings
-        for origin in ("https://globalopportunities.live", "https://www.globalopportunities.live",
-                       "https://eel-web.onrender.com"):
-            assert origin in settings.CORS_ALLOWED_ORIGINS
+        assert settings.SITE_URL in settings.CORS_ALLOWED_ORIGINS
         assert settings.CSRF_TRUSTED_ORIGINS == settings.CORS_ALLOWED_ORIGINS
 
     def test_reset_links_use_the_canonical_site(self):

@@ -1,16 +1,17 @@
-# Render Blueprint — creates the whole site from this file.
-# Render dashboard → New → Blueprint → pick this repo. See docs/DEPLOY.md.
+# Render Blueprint for the SimplyFind backend.
+# Render dashboard -> New -> Blueprint -> pick this repo.
 # Values marked `sync: false` are asked for once when the Blueprint is created.
+# The frontend service is added here once the website is built.
 
 services:
   # Django API + admin
   - type: web
-    name: eel-api
+    name: simplyfind-api
     runtime: python
     rootDir: backend
     plan: free            # sleeps after 15 min idle; "starter" stays awake
-    # Automatic ingestion runs from GitHub Actions (.github/workflows/ingest.yml),
-    # since Render background workers have no free plan.
+    # Scheduled jobs (ingestion, privacy clean-ups) run from GitHub Actions
+    # (.github/workflows/ingest.yml), since Render background workers have no free plan.
     region: frankfurt
     buildCommand: >-
       pip install -r requirements.txt &&
@@ -19,8 +20,8 @@ services:
       python manage.py setup_groups &&
       python manage.py setup_categories &&
       (python manage.py createsuperuser --noinput || echo "superuser exists or DJANGO_SUPERUSER_* not set")
-    # 4 threads per worker serve the homepage's parallel requests; the longer
-    # timeout stops the admin "fetch now" action being killed mid-fetch.
+    # Then, once, from a shell or a one-off job: python manage.py setup_mfa <admin email>
+    # (staff need two-step sign-in for the admin).
     startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
     healthCheckPath: /health/
     envVars:
@@ -32,46 +33,50 @@ services:
         generateValue: true
       - key: INGESTION_AUTOSTART
         value: "False"
-      - key: PREMIUM_ENABLED       # frozen until further notice
-        value: "False"
-      - key: DATABASE_URL          # Supabase → Connect → Session pooler URI
+      - key: DATABASE_URL          # Supabase -> Connect -> Session pooler URI
         sync: false
-      # First admin, created on build (free plan has no shell). Remove the
-      # password from the dashboard after the first successful deploy.
+      # First admin, created on build. Remove the password from the dashboard
+      # after the first successful deploy.
       - key: DJANGO_SUPERUSER_EMAIL
         sync: false
       - key: DJANGO_SUPERUSER_NAME
         sync: false
       - key: DJANGO_SUPERUSER_PASSWORD
         sync: false
-      # The production sites are always allowed (config/settings.py); list any
-      # extra frontend origins here, comma-separated. Optional.
+      # Required: the public website, e.g. https://simplyfind.example. Email
+      # links and the sitemap use it, and it is always an allowed origin.
+      - key: SITE_URL
+        sync: false
+      # Extra frontend origins (a www. alias, a preview deploy), comma-separated. Optional.
       - key: CORS_ALLOWED_ORIGINS
         sync: false
-      # eel-web's Deploy Hook URL: suspending a company or taking down a live
-      # listing then rebuilds the site so its pre-rendered page goes at once.
+      # When the API and the website are on different sites, set this to
+      # "None" so the browser sends the sign-in cookies (they stay Secure and
+      # HttpOnly). Leave unset when both share a domain (recommended).
+      - key: AUTH_COOKIE_SAMESITE
+        sync: false
+      - key: AUTH_COOKIE_DOMAIN    # e.g. .simplyfind.example to share cookies with api.simplyfind.example
+        sync: false
+      # The website's Deploy Hook URL: suspending a company or taking down a
+      # live listing then rebuilds the site so its pre-rendered page goes at once.
       - key: FRONTEND_DEPLOY_HOOK
         sync: false
-      # "Sign in with Google" OAuth client ID (same value as VITE_GOOGLE_CLIENT_ID
-      # on eel-web). Unset = Google sign-in off. docs/DEPLOY.md section 2a.
+      # "Sign in with Google" OAuth client ID. Unset = Google sign-in off.
       - key: GOOGLE_CLIENT_ID
         sync: false
-      # Password reset email via Brevo's HTTP API (Render free blocks SMTP).
+      # Email via Brevo's HTTP API (Render's free plan blocks SMTP).
       - key: BREVO_API_KEY
         sync: false
-      - key: DEFAULT_FROM_EMAIL    # a sender verified in Brevo, e.g. Global Opportunities <no-reply@globalopportunities.live>
+      - key: DEFAULT_FROM_EMAIL    # a sender verified in Brevo, e.g. SimplyFind <no-reply@simplyfind.example>
         sync: false
-      - key: SITE_URL              # canonical public site, used in sitemap.xml and email links
-        value: https://globalopportunities.live
-      # Blank = keep applications until withdrawn / account deleted. A
-      # retention period is a policy decision: see docs/DEPLOY.md section 5.
+      # Blank = keep applications until withdrawn or the account is deleted.
       - key: APPLICATION_RETENTION_DAYS
         sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_STORAGE_BUCKET   # public: profile pictures, company logos
         sync: false
-      - key: SUPABASE_PRIVATE_BUCKET   # private: job-application files (CVs)
+      - key: SUPABASE_PRIVATE_BUCKET   # private, required: transcripts, CVs, certificates
         sync: false
       - key: SUPABASE_S3_REGION
         sync: false
@@ -79,34 +84,22 @@ services:
         sync: false
       - key: SUPABASE_S3_SECRET_ACCESS_KEY
         sync: false
+      # Every upload is virus-scanned; production refuses uploads while the
+      # scanner is unreachable (VIRUS_SCAN_REQUIRED defaults to on).
+      - key: CLAMAV_HOST
+        fromService:
+          type: pserv
+          name: simplyfind-clamav
+          property: host
+      - key: CLAMAV_PORT
+        value: "3310"
 
-  # React frontend (static, free)
-  - type: web
-    name: eel-web
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    routes:
-      - type: rewrite        # SEO: serve the API's live sitemap on the site's own domain
-        source: /sitemap.xml
-        destination: https://eel-api-xoj7.onrender.com/sitemap.xml
-      # Pre-rendered pages (scripts/prerender.mjs) are real files and are served
-      # first; every other route gets the neutral app shell. NOT index.html:
-      # that is the pre-rendered home page, with the home page's canonical URL.
-      - type: rewrite
-        source: /*
-        destination: /app.html
-    envVars:
-      - key: VITE_API_BASE_URL   # the eel-api URL + /api, e.g. https://eel-api.onrender.com/api
-        sync: false
-      - key: VITE_CONTACT_EMAIL
-        sync: false
-      - key: VITE_SITE_URL         # canonical URLs in page meta and pre-rendered pages
-        value: https://globalopportunities.live
-      - key: VITE_GOOGLE_CLIENT_ID # "Sign in with Google" button; same as GOOGLE_CLIENT_ID on eel-api
-        sync: false
-      - key: VITE_PREMIUM_ENABLED  # frozen until further notice; matches eel-api
-        value: "false"
-      - key: VITE_DONATE_URL       # donation page; blank = "#" placeholder link
-        sync: false
+  # ClamAV virus scanner, reachable only from the API on Render's private network.
+  # Needs about 2 GB of memory for its signature database (no free plan).
+  - type: pserv
+    name: simplyfind-clamav
+    runtime: image
+    image:
+      url: docker.io/clamav/clamav:1.4
+    plan: standard
+    region: frankfurt

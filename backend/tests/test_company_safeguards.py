@@ -6,7 +6,6 @@ import io
 import os
 from datetime import timedelta
 
-import pytest
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command

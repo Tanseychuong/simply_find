@@ -11,7 +11,7 @@ from apps.ingestion.connectors.job_boards import (
 )
 from apps.ingestion.models import FetchSource
 from apps.ingestion.services import fetch_source as run_fetch
-from apps.opportunities.models import Opportunity, OpportunityCategory
+from apps.opportunities.models import Opportunity
 
 GREENHOUSE = {"jobs": [
     {

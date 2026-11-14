@@ -1,5 +1,5 @@
 """
-Custom User model for the EEL opportunity portal.
+Custom User model for SimplyFind.
 
 Uses Django's AbstractBaseUser + PermissionsMixin rather than extending the
 default User, so email is the login field (no separate username) and we

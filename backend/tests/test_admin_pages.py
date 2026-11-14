@@ -46,7 +46,7 @@ class TestPagesRender:
 
     def test_status_pill_in_queue(self, admin_user, pending):
         body = _client(admin_user).get(reverse("admin:opportunities_opportunity_changelist")).content.decode()
-        assert 'eel-pill--warn">Pending' in body
+        assert 'sf-pill--warn">Pending' in body
 
 
 @pytest.mark.django_db

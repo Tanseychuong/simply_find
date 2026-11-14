@@ -20,6 +20,7 @@ import hashlib
 import secrets
 
 import pyotp
+import segno
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
@@ -91,10 +92,10 @@ def start_setup(user) -> dict:
     user.mfa_recovery_codes = []
     user.mfa_last_step = None
     user.save(update_fields=["mfa_secret", "mfa_enabled_at", "mfa_recovery_codes", "mfa_last_step"])
-    return {
-        "secret": secret,
-        "otpauth_uri": pyotp.TOTP(secret).provisioning_uri(name=user.email, issuer_name=ISSUER),
-    }
+    uri = pyotp.TOTP(secret).provisioning_uri(name=user.email, issuer_name=ISSUER)
+    # An inline SVG QR code for the authenticator app, made here so the
+    # secret never goes to a third-party QR service.
+    return {"secret": secret, "otpauth_uri": uri, "qr_svg": segno.make(uri, error="m").svg_inline(scale=4)}
 
 
 def _check_totp(user, code: str) -> bool:

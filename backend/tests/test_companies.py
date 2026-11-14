@@ -1,6 +1,7 @@
 """Company accounts: approval, the verified badge, job posting and in-app applications."""
 
 import pytest
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
@@ -214,7 +215,7 @@ class TestSitemap:
         res = api_client.get("/sitemap.xml")
         body = res.content.decode()
         assert res.status_code == 200 and res["Content-Type"] == "application/xml"
-        assert f"https://globalopportunities.live/opportunities/{live_job.pk}</loc>" in body
+        assert f"{settings.SITE_URL}/opportunities/{live_job.pk}</loc>" in body
         assert "/companies/acme-ltd</loc>" in body
         assert "/opportunities?category=jobs</loc>" in body
         assert f"/opportunities/{hidden.pk}</loc>" not in body

@@ -187,7 +187,7 @@ several different jobs at a single shared application form.
 | `INGESTION_WORKER_INTERVAL_SECONDS` | `60` | Pause between cycles |
 | `INGESTION_SOURCE_BATCH` | `10` | Max sources fetched per cycle |
 | `INGESTION_ENRICH_BATCH` | `25` | Max opportunities enriched per cycle |
-| `INGESTION_USER_AGENT` | `EELBot/1.0 (+repo URL)` | Sent with every request |
+| `INGESTION_USER_AGENT` | `SimplyFindBot/1.0` | Sent with every request |
 
 ## Known limits
 

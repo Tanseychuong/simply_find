@@ -1,7 +1,7 @@
 """
 SimplyFind's admin site: Django's own, with a dashboard on the home page,
 the site's branding, and two-step sign-in. Installed in place of the
-default site by config.apps.EELAdminConfig, so every @admin.register keeps
+default site by config.apps.SimplyFindAdminConfig, so every @admin.register keeps
 working.
 """
 
@@ -17,7 +17,7 @@ from .dashboard import dashboard_context
 def pill(text, tone="quiet"):
     """A coloured status pill for list columns. tone: ok / warn / bad / quiet
     (styles in templates/admin/base_site.html)."""
-    return format_html('<span class="eel-pill eel-pill--{}">{}</span>', tone, text)
+    return format_html('<span class="sf-pill sf-pill--{}">{}</span>', tone, text)
 
 
 class TwoStepAdminLoginForm(AdminAuthenticationForm):
@@ -46,7 +46,7 @@ class TwoStepAdminLoginForm(AdminAuthenticationForm):
             raise forms.ValidationError("Enter a current two-step code.", code="mfa_required")
 
 
-class EELAdminSite(admin.AdminSite):
+class SimplyFindAdminSite(admin.AdminSite):
     site_header = "SimplyFind admin"
     site_title = "SimplyFind admin"
     index_title = "Dashboard"

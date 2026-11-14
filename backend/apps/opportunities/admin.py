@@ -10,7 +10,7 @@ through Opportunity.approve()/reject(), so published_at and
 the reviewer trail are always set the same way as from the API.
 """
 
-from django.contrib import admin, messages
+from django.contrib import admin
 from django.db.models import Count
 from django.utils import timezone
 from django.utils.html import format_html

@@ -53,7 +53,7 @@ def start_background_worker() -> None:
             return
         _thread_started = True
     thread = threading.Thread(
-        target=run_forever, args=(threading.Event(),), name="eel-ingestion-worker", daemon=True,
+        target=run_forever, args=(threading.Event(),), name="simplyfind-ingestion-worker", daemon=True,
     )
     thread.start()
     logger.info("Started in-process ingestion worker (INGESTION_AUTOSTART=True)")

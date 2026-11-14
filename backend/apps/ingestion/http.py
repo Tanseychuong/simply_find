@@ -34,7 +34,7 @@ class UnsafeURLError(NotFetchableError):
 
 
 def user_agent() -> str:
-    return getattr(settings, "INGESTION_USER_AGENT", "EELBot/1.0")
+    return getattr(settings, "INGESTION_USER_AGENT", "SimplyFindBot/1.0")
 
 
 def default_headers(accept: str = "*/*") -> dict:

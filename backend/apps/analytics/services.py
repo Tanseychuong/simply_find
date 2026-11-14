@@ -64,7 +64,7 @@ def _own_hosts() -> set:
 
 
 def traffic_source(referrer: str = "", utm_source: str = "") -> str:
-    """'google.com', a utm_source tag, or 'Direct'. Links within EEL count as direct."""
+    """'google.com', a utm_source tag, or 'Direct'. Links within SimplyFind count as direct."""
     if utm_source.strip():
         return utm_source.strip().lower()[:100]
     host = _host(referrer) if referrer else ""
