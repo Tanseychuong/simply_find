@@ -1,9 +1,45 @@
+from django.conf import settings
 from rest_framework import serializers
 
 from apps.accounts.models import User
 
 from .models import Opportunity, OpportunityCategory, SavedOpportunity
 from .sections import KINDS, clean_sections, text_to_blocks
+
+
+ROLE_FIELDS = [
+    "role_type", "experience_years_max", "graduation_year_min", "graduation_year_max",
+    "is_paid", "work_mode", "duration_months", "accepts_minors",
+]
+
+
+class EntryLevelRulesMixin:
+    """Shared by every serializer that creates or edits a listing: keeps
+    SimplyFind to student and recent-graduate roles."""
+
+    def validate_experience_years_max(self, value):
+        if value > settings.MAX_EXPERIENCE_YEARS:
+            raise serializers.ValidationError(
+                f"SimplyFind is for students and recent graduates: ask for at most "
+                f"{settings.MAX_EXPERIENCE_YEARS} years of experience."
+            )
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        instance = getattr(self, "instance", None)
+        first = attrs.get("graduation_year_min", getattr(instance, "graduation_year_min", None))
+        last = attrs.get("graduation_year_max", getattr(instance, "graduation_year_max", None))
+        if first and last and first > last:
+            raise serializers.ValidationError({"graduation_year_max": "The last graduation year can't be before the first."})
+        for field in ("graduation_year_min", "graduation_year_max"):
+            year = attrs.get(field)
+            if year is not None and not 1950 <= year <= 2100:
+                raise serializers.ValidationError({field: "Enter a four-digit year."})
+        role_type = attrs.get("role_type", getattr(instance, "role_type", None))
+        if role_type != "internship" and attrs.get("duration_months"):
+            attrs["duration_months"] = None
+        return attrs
 
 
 class PosterSerializer(serializers.ModelSerializer):
@@ -51,7 +87,7 @@ class OpportunitySerializer(serializers.ModelSerializer):
             "category", "posted_by", "source_type",
             "published_at", "source_published_at", "is_open", "is_saved",
             "company", "application_method",
-        ]
+        ] + ROLE_FIELDS
         read_only_fields = fields
 
     def get_company(self, obj):
@@ -118,7 +154,7 @@ class SubmittedSectionSerializer(serializers.Serializer):
     body = serializers.CharField(max_length=5000, allow_blank=True, trim_whitespace=True)
 
 
-class OpportunityCreateSerializer(serializers.ModelSerializer):
+class OpportunityCreateSerializer(EntryLevelRulesMixin, serializers.ModelSerializer):
     """Write serializer for user submissions — deliberately excludes
     status/reviewed_by/published_at/etc; those are only ever set by
     services.approve_opportunity()/reject_opportunity(), never by the
@@ -135,7 +171,7 @@ class OpportunityCreateSerializer(serializers.ModelSerializer):
         fields = [
             "id", "title", "organization", "description", "location",
             "opportunity_url", "application_deadline", "category", "sections",
-        ]
+        ] + ROLE_FIELDS
         read_only_fields = ["id"]
 
     def validate_sections(self, value):

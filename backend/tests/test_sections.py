@@ -156,9 +156,9 @@ class TestCleanSections:
 FEED = b"""<?xml version="1.0"?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel>
 <item>
-  <title>Warc Africa Aggregation Manager</title>
+  <title>Warc Africa Aggregation Graduate Trainee</title>
   <link>https://jobwebghana.com/jobs/aggregation-manager/</link>
-  <description>Warc Africa is hiring. The post Aggregation Manager appeared first on JobWeb Ghana.</description>
+  <description>Warc Africa is hiring. The post Aggregation Graduate Trainee appeared first on JobWeb Ghana.</description>
   <content:encoded><![CDATA[
     <h2>About Warc</h2><p>Warc Africa supports farmers.</p>
     <h2>Requirements</h2><ul><li>Degree in Agriculture</li></ul>
@@ -173,6 +173,7 @@ def feed(db, category):
     return FetchSource.objects.create(
         name="JobWeb Ghana", connector_type=FetchSource.ConnectorType.RSS,
         url="https://jobwebghana.com/feed/", category=category,
+        role_type="entry_level",  # these tests are about fetching, not sorting roles
     )
 
 

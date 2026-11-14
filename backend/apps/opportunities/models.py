@@ -33,6 +33,17 @@ class OpportunityCategory(models.Model):
 
 
 class Opportunity(models.Model):
+    class RoleType(models.TextChoices):
+        INTERNSHIP = "internship", "Internship"
+        GRADUATE_PROGRAMME = "graduate_programme", "Graduate programme"
+        ENTRY_LEVEL = "entry_level", "Entry-level role"
+        GRADUATE_SCHOOL = "graduate_school", "Graduate school programme"
+
+    class WorkMode(models.TextChoices):
+        ON_SITE = "on_site", "On site"
+        HYBRID = "hybrid", "Hybrid"
+        REMOTE = "remote", "Remote"
+
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         APPROVED = "approved", "Approved"
@@ -84,6 +95,23 @@ class Opportunity(models.Model):
     # de-duplication and so moderators can see where it was posted.
     listing_url = models.URLField(max_length=500, blank=True, db_index=True)
     application_deadline = models.DateTimeField(null=True, blank=True)
+
+    # --- Who it's for (SimplyFind: students and recent graduates only) -----
+    # The category is the field of work (Engineering, Business ...); the
+    # role type is fixed in code because the eligibility rules depend on it.
+    role_type = models.CharField(max_length=20, choices=RoleType.choices, default=RoleType.INTERNSHIP)
+    # Years of work experience the role asks for. Anything above
+    # settings.MAX_EXPERIENCE_YEARS is not an entry-level role and is refused.
+    experience_years_max = models.PositiveSmallIntegerField(default=0)
+    # Graduation years the role is open to, e.g. 2025-2027. Blank = any
+    # student or recent graduate.
+    graduation_year_min = models.PositiveSmallIntegerField(null=True, blank=True)
+    graduation_year_max = models.PositiveSmallIntegerField(null=True, blank=True)
+    is_paid = models.BooleanField(null=True, blank=True, help_text="Blank = not stated.")
+    work_mode = models.CharField(max_length=10, choices=WorkMode.choices, blank=True)
+    duration_months = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Internships only.")
+    # Off by default: under-18s can only apply where the company says so.
+    accepts_minors = models.BooleanField(default=False)
 
     # --- Automatic enrichment ---------------------------------------------
     # Filled by the ingestion worker from the listing page's Open Graph
@@ -139,6 +167,7 @@ class Opportunity(models.Model):
         ]
         indexes = [
             models.Index(fields=["status", "category"]),
+            models.Index(fields=["status", "role_type"]),
             models.Index(fields=["status", "published_at"]),
             models.Index(fields=["application_deadline"]),
             models.Index(fields=["enrichment_status", "enrichment_checked_at"]),
@@ -168,6 +197,20 @@ class Opportunity(models.Model):
         if self.company_id and self.company.status != "approved":
             return False  # suspended/rejected companies' jobs come off the site
         return self.published_at is not None and self.published_at <= timezone.now()
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        errors = {}
+        if self.experience_years_max > settings.MAX_EXPERIENCE_YEARS:
+            errors["experience_years_max"] = (
+                f"SimplyFind is for students and recent graduates: ask for at most "
+                f"{settings.MAX_EXPERIENCE_YEARS} years of experience."
+            )
+        if (self.graduation_year_min and self.graduation_year_max
+                and self.graduation_year_min > self.graduation_year_max):
+            errors["graduation_year_max"] = "The last graduation year can't be before the first."
+        if errors:
+            raise ValidationError(errors)
 
     @property
     def is_open(self) -> bool:

@@ -108,6 +108,7 @@ def feed(db, category):
     return FetchSource.objects.create(
         name="Opportunity Desk", connector_type=FetchSource.ConnectorType.RSS,
         url="https://opportunitydesk.org/feed/", category=category,
+        role_type="entry_level",  # these tests are about fetching, not sorting roles
     )
 
 

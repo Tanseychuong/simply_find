@@ -97,7 +97,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         "title", "organization", "category", "status_badge", "source_type", "enrichment_badge",
         "submitted_at", "application_deadline", "saves",
     )
-    list_filter = ("status", "source_type", "enrichment_status", "category")
+    list_filter = ("status", "role_type", "source_type", "enrichment_status", "category")
     list_select_related = ("category",)
     search_fields = ("title", "organization", "description", "opportunity_url", "listing_url")
     date_hierarchy = "submitted_at"
@@ -115,6 +115,10 @@ class OpportunityAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {"fields": ("title", "organization", "category", "description", "location", "opportunity_url", "open_link", "application_deadline")}),
+        ("Who it's for", {"fields": (
+            "role_type", "experience_years_max", ("graduation_year_min", "graduation_year_max"),
+            "is_paid", "work_mode", "duration_months", "accepts_minors",
+        )}),
         ("Description sections", {
             "fields": ("sections",),
             "classes": ("collapse",),

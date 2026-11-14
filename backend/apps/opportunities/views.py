@@ -18,6 +18,7 @@ from .serializers import (
 )
 from .services import (
     approve_opportunity,
+    filter_by_role,
     landing_stats,
     list_visible_opportunities,
     reject_opportunity,
@@ -95,9 +96,10 @@ class OpportunityViewSet(viewsets.ModelViewSet):
             return self._with_saved_flag(qs.select_related("category", "posted_by", "company"), user)
 
         # list, and the default for any other action
-        category_slug = self.request.query_params.get("category")
-        include_expired = self.request.query_params.get("include_expired") == "true"
-        qs = list_visible_opportunities(user, category_slug=category_slug, include_expired=include_expired)
+        params = self.request.query_params
+        include_expired = params.get("include_expired") == "true"
+        qs = list_visible_opportunities(user, category_slug=params.get("category"), include_expired=include_expired)
+        qs = filter_by_role(qs, params)
         return self._with_saved_flag(qs.defer("sections"), user)  # only the detail view shows them
 
     @staticmethod

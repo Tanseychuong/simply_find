@@ -300,6 +300,12 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"   # filled by collectstatic, served by WhiteNoise
+# SimplyFind eligibility: who counts as a student or recent graduate.
+# A role may ask for at most MAX_EXPERIENCE_YEARS of experience, and
+# graduates can apply for RECENT_GRADUATE_YEARS after their graduation year.
+MAX_EXPERIENCE_YEARS = int(os.environ.get("MAX_EXPERIENCE_YEARS", 2))
+RECENT_GRADUATE_YEARS = int(os.environ.get("RECENT_GRADUATE_YEARS", 2))
+
 # Media (user uploads — currently just profile pictures). Production stores
 # them in a public Supabase Storage bucket through its S3-compatible API;
 # local dev keeps them on disk under MEDIA_ROOT (served by config/urls.py).

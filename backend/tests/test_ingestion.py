@@ -12,7 +12,7 @@ from apps.opportunities.models import Opportunity
 SAMPLE_RSS = b"""<?xml version="1.0"?>
 <rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel>
 <item>
-  <title>Sample Fellowship</title>
+  <title>Sample Graduate Trainee</title>
   <link>https://example.com/fellowship</link>
   <description>&lt;p&gt;A &lt;b&gt;great&lt;/b&gt; opportunity.&lt;/p&gt;</description>
   <pubDate>Mon, 01 Jan 2026 00:00:00 GMT</pubDate>
@@ -38,6 +38,7 @@ def rss_source(db, category):
     return FetchSource.objects.create(
         name="Test Feed", connector_type=FetchSource.ConnectorType.RSS,
         url="https://example.com/feed.xml", category=category,
+        role_type="entry_level",  # these tests are about fetching, not sorting roles
     )
 
 
@@ -58,7 +59,7 @@ class TestRSSConnector:
 
         assert len(items) == 1
         item = items[0]
-        assert item["title"] == "Sample Fellowship"
+        assert item["title"] == "Sample Graduate Trainee"
         assert item["opportunity_url"] == "https://example.com/fellowship"
         assert item["image_url"] == "https://example.com/cover.jpg"
         assert item["description"] == "A great opportunity."  # HTML stripped
@@ -121,7 +122,7 @@ class TestFetchSourceService:
 
         assert log.status == FetchLog.Status.SUCCESS
         assert log.items_created == 1
-        opportunity = Opportunity.objects.get(title="Sample Fellowship")
+        opportunity = Opportunity.objects.get(title="Sample Graduate Trainee")
         assert opportunity.status == Opportunity.Status.PENDING
         assert opportunity.source_type == Opportunity.SourceType.FETCHED
         assert opportunity.fetch_source == rss_source
@@ -136,7 +137,7 @@ class TestFetchSourceService:
         run_fetch(rss_source)
         second_log = run_fetch(rss_source)
 
-        assert Opportunity.objects.filter(title="Sample Fellowship").count() == 1
+        assert Opportunity.objects.filter(title="Sample Graduate Trainee").count() == 1
         assert second_log.items_created == 0
         assert second_log.status == FetchLog.Status.PARTIAL
 
@@ -153,7 +154,7 @@ class TestFetchSourceService:
     @patch("apps.ingestion.connectors.rss_connector.requests.get")
     def test_overlong_fields_are_clipped_not_fatal(self, mock_get, rss_source):
         long_title = b"T" * 450
-        mock_get.return_value = _mock_response(SAMPLE_RSS.replace(b"Sample Fellowship", long_title))
+        mock_get.return_value = _mock_response(SAMPLE_RSS.replace(b"Sample Graduate Trainee", long_title))
 
         log = run_fetch(rss_source)
 

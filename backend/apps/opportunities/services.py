@@ -8,7 +8,7 @@ bulk actions.
 from datetime import timedelta
 
 from django.apps import apps
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.utils import timezone
 
 from .models import Opportunity
@@ -51,6 +51,31 @@ def list_visible_opportunities(user, category_slug: str | None = None, include_e
     if category_slug:
         queryset = queryset.filter(category__slug=category_slug)
     return queryset.order_by("-published_at", "-pk")
+
+
+def filter_by_role(queryset, params):
+    """The feed's role filters, from query parameters:
+    ?role_type=internship,entry_level  ?work_mode=remote  ?paid=true
+    ?graduation_year=2026 (roles open to that graduation year)."""
+    role_types = [v for v in params.get("role_type", "").split(",") if v in Opportunity.RoleType.values]
+    if role_types:
+        queryset = queryset.filter(role_type__in=role_types)
+    else:
+        # Graduate school listings are an opt-in tab, not part of the job feed.
+        queryset = queryset.exclude(role_type=Opportunity.RoleType.GRADUATE_SCHOOL)
+    work_modes = [v for v in params.get("work_mode", "").split(",") if v in Opportunity.WorkMode.values]
+    if work_modes:
+        queryset = queryset.filter(work_mode__in=work_modes)
+    if params.get("paid") == "true":
+        queryset = queryset.filter(is_paid=True)
+    year = params.get("graduation_year", "")
+    if year.isdigit():
+        year = int(year)
+        queryset = queryset.filter(
+            Q(graduation_year_min__isnull=True) | Q(graduation_year_min__lte=year),
+            Q(graduation_year_max__isnull=True) | Q(graduation_year_max__gte=year),
+        )
+    return queryset
 
 
 def landing_stats(user) -> dict:

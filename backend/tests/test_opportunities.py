@@ -126,12 +126,12 @@ class TestSetupCategories:
 
         call_command("setup_categories", stdout=StringIO())
         slugs = set(OpportunityCategory.objects.values_list("slug", flat=True))
-        assert {"scholarships", "fellowships", "jobs", "grants"} <= slugs
+        assert {"engineering-tech", "business-finance", "ngo-development", "other"} <= slugs
 
-        OpportunityCategory.objects.filter(slug="jobs").update(name="Careers")
+        OpportunityCategory.objects.filter(slug="other").update(name="Everything else")
         call_command("setup_categories", stdout=StringIO())
         assert OpportunityCategory.objects.count() == len(slugs)
-        assert OpportunityCategory.objects.get(slug="jobs").name == "Careers"   # admin edit kept
+        assert OpportunityCategory.objects.get(slug="other").name == "Everything else"   # admin edit kept
 
 
 @pytest.mark.django_db

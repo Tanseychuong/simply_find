@@ -12,11 +12,18 @@ from django.core.management.base import BaseCommand
 
 from apps.opportunities.models import OpportunityCategory
 
+# Fields of work. The kind of role (internship, graduate programme,
+# entry-level, graduate school) is Opportunity.role_type, not a category.
 DEFAULT_CATEGORIES = [
-    ("scholarships", "Scholarships", "Funding for undergraduate and graduate study."),
-    ("fellowships", "Fellowships", "Leadership, research and professional fellowship programmes."),
-    ("jobs", "Jobs & Internships", "Full-time roles, internships and graduate schemes."),
-    ("grants", "Grants", "Funding for projects, ventures and community initiatives."),
+    ("engineering-tech", "Engineering & Technology", "Software, IT, data, and engineering."),
+    ("business-finance", "Business & Finance", "Accounting, banking, consulting, sales and operations."),
+    ("ngo-development", "NGOs & Development", "Humanitarian, development and international organisations."),
+    ("health", "Health", "Clinical, public health and pharmacy."),
+    ("education", "Education & Research", "Teaching, research and academic support."),
+    ("agriculture-environment", "Agriculture & Environment", "Farming, food security, climate and natural resources."),
+    ("law-government", "Law & Government", "Legal, policy and public service."),
+    ("media-communications", "Media & Communications", "Journalism, marketing, design and communications."),
+    ("other", "Other fields", "Roles that don't fit the fields above."),
 ]
 
 

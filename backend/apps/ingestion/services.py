@@ -16,7 +16,7 @@ from django.utils import timezone
 from apps.opportunities.models import Opportunity, OpportunityCategory
 from apps.opportunities.sections import as_text
 
-from .classify import find_deadline, guess_category
+from .classify import classify_role, find_deadline, guess_field
 from .connectors import get_connector_class
 from .models import FetchLog
 
@@ -41,6 +41,7 @@ def fetch_source(source) -> FetchLog:
     started_at = timezone.now()
     items_found = 0
     items_created = 0
+    items_skipped = 0
     item_errors: list[str] = []
     error_message = ""
     log_status = FetchLog.Status.SUCCESS
@@ -71,6 +72,12 @@ def fetch_source(source) -> FetchLog:
 
             description = (item.get("description") or "").strip()
             is_feed = source.connector_type == source.ConnectorType.RSS
+            role = classify_role(
+                {**item, "sections_text": as_text(item.get("sections"))}, source.role_type,
+            )
+            if role is None:
+                items_skipped += 1  # not a student or recent-graduate role
+                continue
             try:
                 # A savepoint per item: one malformed entry shouldn't
                 # roll back the rest of the batch.
@@ -92,11 +99,9 @@ def fetch_source(source) -> FetchLog:
                             or find_deadline(as_text(item.get("sections")))
                         ),
                         source_published_at=item.get("source_published_at"),
-                        # Job boards are all jobs; feeds can mix every kind.
-                        category=(
-                            guess_category(item, source.category, categories)
-                            if is_feed else source.category
-                        ),
+                        category=guess_field(item, source.category, categories),
+                        role_type=role.role_type,
+                        experience_years_max=role.experience_years,
                         source_type=Opportunity.SourceType.FETCHED,
                         status=Opportunity.Status.PENDING,  # fetched never means approved
                         fetch_source=source,
@@ -108,7 +113,7 @@ def fetch_source(source) -> FetchLog:
         if item_errors:
             log_status = FetchLog.Status.PARTIAL
             error_message = f"{len(item_errors)} item(s) failed: " + "; ".join(item_errors[:5])
-        elif items_found and not items_created:
+        elif items_found and not items_created and items_skipped < items_found:
             log_status = FetchLog.Status.PARTIAL  # feed had items, all already known — worth knowing, not an error
 
     except Exception as exc:  # noqa: BLE001 — genuinely want to catch+log anything here
@@ -129,5 +134,6 @@ def fetch_source(source) -> FetchLog:
         status=log_status,
         items_found=items_found,
         items_created=items_created,
+        items_skipped=items_skipped,
         error_message=error_message,
     )

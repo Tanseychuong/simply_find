@@ -90,6 +90,7 @@ class TestChangeFormStatus:
             "location": "", "opportunity_url": "", "application_deadline_0": "", "application_deadline_1": "",
             "image_url": "", "posted_by": "", "source_type": opp.source_type, "fetch_source": "",
             "status": opp.status, "rejection_reason": "",
+            "role_type": opp.role_type, "experience_years_max": opp.experience_years_max, "is_paid": "unknown",
         }
         data.update(overrides)
         return client.post(reverse("admin:opportunities_opportunity_change", args=[opp.pk]), data)
