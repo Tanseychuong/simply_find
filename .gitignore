@@ -14,7 +14,9 @@ env/
 *.sqlite3
 db.sqlite3
 staticfiles/
-media/            # user uploads (profile pictures) — never commit
+# User uploads (transcripts, CVs, profile pictures): never commit.
+# Git has no end-of-line comments, so this must stay on its own line.
+media/
 
 # --- Node / React / Vite ------------------------------------------------------
 node_modules/
