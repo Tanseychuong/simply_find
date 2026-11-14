@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "apps.companies",
     "apps.documents",
     "apps.profiles",
+    "apps.drives",
 ]
 
 MIDDLEWARE = [
@@ -169,6 +170,10 @@ REST_FRAMEWORK = {
         "uploads": os.environ.get("UPLOADS_THROTTLE_RATE", "20/hour"),
         # Team invitations send email to addresses a company types in.
         "company_invites": os.environ.get("COMPANY_INVITES_THROTTLE_RATE", "20/hour"),
+        # Applicant lists leaving the site as CSV or print.
+        "exports": os.environ.get("EXPORTS_THROTTLE_RATE", "30/hour"),
+        # Students signed up at a recruitment drive desk (one laptop, a queue of people).
+        "desk_signups": os.environ.get("DESK_SIGNUPS_THROTTLE_RATE", "200/hour"),
     },
 }
 

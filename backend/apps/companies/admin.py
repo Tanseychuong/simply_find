@@ -1,7 +1,7 @@
 from django.contrib import admin, messages
 
 from .models import (
-    Application, ApplicationAnswer, ApplicationRequirement, Company, CompanyInvitation, CompanyMembership,
+    Application, ApplicationAnswer, ApplicationRequirement, Company, CompanyInvitation, CompanyMembership, ExportLog,
 )
 from .services import review_company
 
@@ -94,3 +94,17 @@ class ApplicationRequirementAdmin(admin.ModelAdmin):
     list_display = ("label", "opportunity", "kind", "required", "position")
     list_filter = ("kind",)
     search_fields = ("label", "opportunity__title")
+
+
+@admin.register(ExportLog)
+class ExportLogAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "company", "user_name", "job_title", "format", "row_count")
+    list_filter = ("format",)
+    search_fields = ("company__name", "user_name", "job_title")
+    readonly_fields = [f.name for f in ExportLog._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

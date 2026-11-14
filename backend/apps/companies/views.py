@@ -30,7 +30,7 @@ owners change roles. A company always keeps at least one owner.
 from pathlib import Path
 
 from django.db.models import Count, Q
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -49,7 +49,8 @@ from apps.opportunities.serializers import OpportunitySerializer
 from apps.opportunities.services import list_visible_opportunities
 from apps.opportunities.views import OpportunityViewSet
 
-from .models import Application, ApplicationAnswer, Company, CompanyInvitation, CompanyMembership
+from . import recruiting
+from .models import Application, ApplicationAnswer, Company, CompanyInvitation, CompanyMembership, ExportLog
 from .serializers import (
     CompanyApplicationSerializer,
     CompanyInvitationSerializer,
@@ -247,11 +248,62 @@ class JobApplicationsView(generics.ListAPIView):
 
     def get_queryset(self):
         job = get_object_or_404(Opportunity, pk=self.kwargs["pk"], company=_hiring_company(self.request))
-        return (
-            job.applications.exclude(status=Application.Status.WITHDRAWN)
-            .select_related("applicant", "opportunity")
-            .prefetch_related("answers")
-        )
+        return _applications_for(job, self.request.query_params)
+
+
+def _applications_for(job, params):
+    queryset = (
+        job.applications.exclude(status=Application.Status.WITHDRAWN)
+        .select_related("applicant", "opportunity__company", "applicant__student_profile__field")
+        .prefetch_related("answers", "applicant__credentials")
+    )
+    return recruiting.filter_applications(queryset, params)
+
+
+class JobApplicationsBulkView(APIView):
+    """POST {"ids": [...], "status": "shortlisted"}: each applicant is emailed."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        job = get_object_or_404(Opportunity, pk=pk, company=_hiring_company(request))
+        changed = recruiting.bulk_set_status(job, request.data.get("ids"), request.data.get("status"))
+        return Response({"changed": changed})
+
+
+class _JobExportView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "exports"
+    export_format = ""
+
+    def get(self, request, pk):
+        company = _hiring_company(request)
+        job = get_object_or_404(Opportunity.objects.select_related("company"), pk=pk, company=company)
+        applications = list(_applications_for(job, request.query_params))
+        recruiting.log_export(request, company, job, self.export_format, len(applications),
+                              request.query_params.dict())
+        response = self.render(job, applications)
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+
+class JobApplicationsCsvView(_JobExportView):
+    export_format = ExportLog.Format.CSV
+
+    def render(self, job, applications):
+        response = HttpResponse(recruiting.to_csv(applications), content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="applicants-{job.pk}.csv"'
+        return response
+
+
+class JobApplicationsPrintView(_JobExportView):
+    export_format = ExportLog.Format.PRINT
+
+    def render(self, job, applications):
+        response = HttpResponse(recruiting.to_print_html(job, applications), content_type="text/html; charset=utf-8")
+        response["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'"
+        return response
 
 
 class CompanyApplicationUpdateView(generics.UpdateAPIView):

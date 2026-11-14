@@ -340,3 +340,30 @@ class ApplicationAnswer(models.Model):
     class Meta:
         ordering = ["pk"]
 
+
+
+class ExportLog(models.Model):
+    """A team member downloaded or printed a job's applicant list. Personal
+    data leaving the site is recorded: who, which job, how many people."""
+
+    class Format(models.TextChoices):
+        CSV = "csv", "CSV"
+        PRINT = "print", "Printable list"
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="exports")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    user_name = models.CharField(max_length=120)
+    opportunity = models.ForeignKey(
+        "opportunities.Opportunity", on_delete=models.SET_NULL, null=True, related_name="+",
+    )
+    job_title = models.CharField(max_length=300)
+    format = models.CharField(max_length=10, choices=Format.choices)
+    row_count = models.PositiveIntegerField()
+    filters = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user_name} exported {self.row_count} from {self.job_title}"

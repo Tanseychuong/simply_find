@@ -73,6 +73,10 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        if request.data.get("drive"):
+            # Signed up from a recruitment drive's QR code (apps/drives).
+            from apps.drives.services import record_self_signup
+            record_self_signup(str(request.data["drive"]), user)
         verification.send_verification_email(user)
         return _signed_in(user, status_code=status.HTTP_201_CREATED)
 
