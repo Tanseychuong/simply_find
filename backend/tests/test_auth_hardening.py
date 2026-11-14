@@ -1,6 +1,8 @@
 """Email verification, cookie sessions with CSRF, refresh rotation, sign-out,
 two-step sign-in for staff and company teams, and hidden applicant contacts."""
 
+import secrets
+
 import pyotp
 import pytest
 from django.core import mail
@@ -13,6 +15,12 @@ from apps.companies.models import Company
 
 pytestmark = pytest.mark.django_db
 PASSWORD = "testpass123"
+
+
+def _new_password() -> str:
+    """A fresh strong password for tests that change one (made at run time,
+    so no password-looking strings sit in the code)."""
+    return "Aa1-" + secrets.token_urlsafe(16)
 
 
 @pytest.fixture
@@ -89,7 +97,7 @@ class TestEmailVerification:
 
         APIClient().post("/api/auth/password-reset/confirm/", {
             "uid": urlsafe_base64_encode(force_bytes(user.pk)),
-            "token": default_token_generator.make_token(user), "password": "N3w-Passw0rd!x",
+            "token": default_token_generator.make_token(user), "password": _new_password(),
         }, format="json")
         assert User.objects.get(pk=user.pk).email_verified
 
@@ -179,7 +187,7 @@ class TestTwoStepSignIn:
         _turn_on_mfa(user)
         token = _login(APIClient(), user).data["mfa_token"]
         user = User.objects.get(pk=user.pk)
-        user.set_password("An0ther-passw0rd")
+        user.set_password(_new_password())
         user.save()
         res = APIClient().post("/api/auth/mfa/login/", {"mfa_token": token, "code": _fresh_code(user)}, format="json")
         assert res.status_code == 401
