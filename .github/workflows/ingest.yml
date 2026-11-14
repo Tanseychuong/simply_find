@@ -1,0 +1,79 @@
+# Automatic ingestion for free: one fetch + enrich cycle every 3 hours,
+# straight against the production database. Replaces a paid Render worker.
+# Needs one repo secret: DATABASE_URL (Supabase session pooler URI).
+
+name: Ingest opportunities
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"   # UTC; each source still honours its own interval
+  workflow_dispatch:          # "Run workflow" button for an on-demand fetch
+    inputs:
+      setup_sources:
+        description: "First run setup_fetch_sources (adds missing researched sources; keeps admin edits)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+      # Opt-in, not every run: a source an admin deleted would come back.
+      - name: Add researched sources
+        if: ${{ inputs.setup_sources }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DEBUG: "True"
+        run: python manage.py setup_fetch_sources
+      - name: Run one ingestion cycle
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # DEBUG=True only skips the web-server production checks (SECRET_KEY,
+          # media storage) — this job serves nothing and uploads no files.
+          DEBUG: "True"
+          INGESTION_AUTOSTART: "False"
+        run: python manage.py run_ingestion_worker --once
+      # Keeps the retention promise in the privacy notice (~13 months).
+      - name: Prune old visitor data
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DEBUG: "True"
+        run: python manage.py prune_visitor_data
+      # Privacy notice section 13: accounts whose deletion was requested are
+      # permanently deleted once the 14-day hold has passed.
+      - name: Delete accounts past their deletion hold
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DEBUG: "True"
+        run: python manage.py purge_deleted_accounts
+      # SEO: rebuild the website so new listings get their own pre-rendered
+      # page (frontend/scripts/prerender.mjs). Twice a day rather than every
+      # run, to stay well inside the host's monthly build minutes; manual runs
+      # always rebuild. Needs repo secret RENDER_FRONTEND_DEPLOY_HOOK
+      # (Render -> eel-web -> Settings -> Deploy Hook); skipped while unset.
+      - name: Rebuild the website (pre-rendered pages)
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then echo "RENDER_FRONTEND_DEPLOY_HOOK not set; skipping rebuild."; exit 0; fi
+          hour=$(date -u +%H)
+          if [ "$MANUAL" != "true" ] && [ "$hour" != "06" ] && [ "$hour" != "18" ]; then
+            echo "Not a rebuild hour ($hour UTC); next rebuild at 06 or 18 UTC."; exit 0
+          fi
+          curl -fsS -X POST "$DEPLOY_HOOK" > /dev/null && echo "Website rebuild triggered."

@@ -1,0 +1,340 @@
+{% extends "admin/index.html" %}
+{# Admin home: what needs attention first, then how the site is doing, then the usual model list. Data comes from config/dashboard.py. #}
+{% load i18n %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  .dashboard #content { width: auto; max-width: 1280px; }   /* admin's dashboard.css pins it to 600px */
+  .eel-dash { display: grid; gap: 20px; margin-bottom: 28px; }
+  .eel-hello { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+  .eel-hello h1 { margin: 0; font-size: 1.6rem; font-weight: 600; color: var(--body-loud-color); }
+  .eel-hello p { margin: 0; color: var(--body-quiet-color); }
+
+  .eel-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .eel-kpi {
+    display: block; padding: 16px 18px; border-radius: 12px; background: var(--eel-surface);
+    border: 1px solid var(--hairline-color); box-shadow: var(--eel-shadow); color: inherit;
+  }
+  a.eel-kpi:hover { border-color: var(--border-color); text-decoration: none; }
+  .eel-kpi__label { font-size: 0.78rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.06em; }
+  .eel-kpi__value { margin-top: 6px; font-size: 1.9rem; font-weight: 650; line-height: 1.1; color: var(--body-loud-color); font-variant-numeric: tabular-nums; }
+  .eel-kpi__hint { margin-top: 4px; font-size: 0.8rem; color: var(--body-quiet-color); }
+  .eel-kpi--alert { border-color: var(--eel-warn); background: var(--eel-warn-bg); }
+  .eel-kpi--alert .eel-kpi__value { color: var(--eel-warn); }
+
+  .eel-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; }
+  .eel-span-7 { grid-column: span 7; }
+  .eel-span-5 { grid-column: span 5; }
+  .eel-span-4 { grid-column: span 4; }
+  @media (max-width: 1024px) { .eel-span-7, .eel-span-5, .eel-span-4 { grid-column: 1 / -1; } }
+
+  .eel-card {
+    background: var(--eel-surface); border: 1px solid var(--hairline-color); border-radius: 12px;
+    box-shadow: var(--eel-shadow); padding: 18px 20px; min-width: 0;
+  }
+  .eel-card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .eel-card__head h2 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--body-loud-color); background: none; padding: 0; text-transform: none; letter-spacing: 0; }
+  .eel-card__head a { font-size: 0.82rem; white-space: nowrap; }
+
+  .eel-list { list-style: none; margin: 0; padding: 0; }
+  .eel-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--hairline-color); }
+  .eel-list li:first-child { border-top: 0; padding-top: 2px; }
+  .eel-list__main { min-width: 0; }
+  .eel-list__title { display: block; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .eel-list__sub { display: block; font-size: 0.8rem; color: var(--body-quiet-color); margin-top: 2px; }
+  .eel-empty { margin: 4px 0 0; color: var(--body-quiet-color); }
+
+
+  .eel-chart { display: grid; grid-template-columns: repeat({{ dash.daily|length|default:14 }}, minmax(0, 1fr)); align-items: end; gap: 5px; height: 120px; }
+  .eel-chart__bar { position: relative; height: 100%; display: flex; align-items: flex-end; }
+  .eel-chart__bar span { display: block; width: 100%; min-height: 3px; border-radius: 4px 4px 2px 2px; background: var(--eel-bar); }
+  .eel-chart__bar.is-zero span { background: var(--eel-bar-quiet); }
+  .eel-chart__axis { display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.75rem; color: var(--body-quiet-color); }
+
+  .eel-bars { display: grid; gap: 10px; margin-top: 18px; }
+  .eel-bars__row { display: grid; grid-template-columns: minmax(90px, 34%) 1fr 32px; align-items: center; gap: 10px; font-size: 0.85rem; }
+  .eel-bars__track, .eel-bars__fill { display: block; }
+  .eel-bars__track { height: 8px; border-radius: 999px; background: var(--eel-bar-quiet); overflow: hidden; }
+  .eel-bars__fill { height: 100%; border-radius: 999px; background: var(--eel-bar); }
+  .eel-bars__n { text-align: right; font-variant-numeric: tabular-nums; color: var(--body-quiet-color); }
+
+  .eel-section-title { margin: 8px 0 12px; font-size: 1rem; font-weight: 600; color: var(--body-loud-color); }
+  .eel-actions .actionlist { margin: 0; padding-left: 0; }
+</style>
+{% endblock %}
+
+{% block coltype %}colM{% endblock %}
+
+{% block content_title %}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <div class="eel-dash">
+    <div class="eel-hello">
+      <h1>Welcome back{% if user.name %}, {{ user.name.split.0 }}{% endif %}</h1>
+      <p>{{ now|date:"l, j F Y" }}</p>
+    </div>
+
+    {# ---------------------------------------------------------------- KPIs #}
+    <div class="eel-kpis">
+      {% if "pending_count" in dash %}
+        <a class="eel-kpi{% if dash.pending_count %} eel-kpi--alert{% endif %}" href="{% url 'admin:opportunities_opportunity_changelist' %}?status__exact=pending">
+          <div class="eel-kpi__label">Awaiting review</div>
+          <div class="eel-kpi__value">{{ dash.pending_count }}</div>
+          <div class="eel-kpi__hint">{% if dash.pending_count %}Open the moderation queue{% else %}Queue is clear{% endif %}</div>
+        </a>
+        <a class="eel-kpi" href="{% url 'admin:opportunities_opportunity_changelist' %}?status__exact=approved">
+          <div class="eel-kpi__label">Live listings</div>
+          <div class="eel-kpi__value">{{ dash.live_count }}</div>
+          <div class="eel-kpi__hint">{{ dash.added_week }} added this week</div>
+        </a>
+      {% endif %}
+      {% if dash.users %}
+        <a class="eel-kpi" href="{% url 'admin:accounts_user_changelist' %}">
+          <div class="eel-kpi__label">Members</div>
+          <div class="eel-kpi__value">{{ dash.users.total }}</div>
+          <div class="eel-kpi__hint">{{ dash.users.new_week }} joined this week</div>
+        </a>
+        <a class="eel-kpi" href="{% url 'admin:accounts_user_changelist' %}?is_premium__exact=1">
+          <div class="eel-kpi__label">Premium</div>
+          <div class="eel-kpi__value">{{ dash.users.premium }}</div>
+          <div class="eel-kpi__hint">active subscriptions</div>
+        </a>
+      {% endif %}
+      {% if "saves" in dash %}
+        <a class="eel-kpi" href="{% url 'admin:opportunities_savedopportunity_changelist' %}">
+          <div class="eel-kpi__label">Saved</div>
+          <div class="eel-kpi__value">{{ dash.saves }}</div>
+          <div class="eel-kpi__hint">bookmarks by members</div>
+        </a>
+      {% endif %}
+      {% if dash.sources %}
+        <a class="eel-kpi{% if dash.sources.failing %} eel-kpi--alert{% endif %}" href="{% url 'admin:ingestion_fetchsource_changelist' %}">
+          <div class="eel-kpi__label">Feed sources</div>
+          <div class="eel-kpi__value">{{ dash.sources.active }}</div>
+          <div class="eel-kpi__hint">{% if dash.sources.failing %}{{ dash.sources.failing|length }} failing{% elif dash.sources.active %}all healthy{% else %}add an RSS feed{% endif %}</div>
+        </a>
+      {% endif %}
+    </div>
+
+    {% if "pending_count" in dash %}
+    <div class="eel-grid">
+      {# ------------------------------------------------------ Review queue #}
+      <section class="eel-card eel-span-7" aria-labelledby="eel-queue">
+        <div class="eel-card__head">
+          <h2 id="eel-queue">Awaiting review</h2>
+          {% if dash.pending_count %}<a href="{% url 'admin:opportunities_opportunity_changelist' %}?status__exact=pending">View all {{ dash.pending_count }} →</a>{% endif %}
+        </div>
+        {% if dash.pending %}
+          <ul class="eel-list">
+            {% for o in dash.pending %}
+              <li>
+                <span class="eel-list__main">
+                  <a class="eel-list__title" href="{% url 'admin:opportunities_opportunity_change' o.pk %}">{{ o.title }}</a>
+                  <span class="eel-list__sub">{{ o.organization|default:"No organisation" }} · {{ o.category.name }} · {{ o.get_source_type_display }}</span>
+                </span>
+                <span class="eel-pill eel-pill--warn" title="{{ o.submitted_at }}">{{ o.age }} ago</span>
+              </li>
+            {% endfor %}
+          </ul>
+          {% if not dash.can_moderate %}<p class="eel-empty">You can view the queue; approving needs the Moderators group.</p>{% endif %}
+        {% else %}
+          <p class="eel-empty">Nothing to review. New submissions and fetched listings will appear here.</p>
+        {% endif %}
+      </section>
+
+      {# --------------------------------------------- Publishing + category #}
+      <section class="eel-card eel-span-5" aria-labelledby="eel-activity">
+        <div class="eel-card__head"><h2 id="eel-activity">Published, last 14 days</h2></div>
+        <div class="eel-chart" role="img" aria-label="Listings published per day over the last 14 days">
+          {% for d in dash.daily %}
+            <div class="eel-chart__bar{% if not d.count %} is-zero{% endif %}" title="{{ d.day|date:'D j M' }}: {{ d.count }}">
+              <span style="height: {% if d.count %}{{ d.pct }}%{% else %}3px{% endif %}"></span>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="eel-chart__axis"><span>{{ dash.daily.0.day|date:"j M" }}</span><span>Today</span></div>
+
+        {% if dash.per_category %}
+          <div class="eel-bars" aria-label="Live listings by category">
+            {% for c in dash.per_category %}
+              <div class="eel-bars__row">
+                <span>{{ c.name }}</span>
+                <span class="eel-bars__track"><span class="eel-bars__fill" style="width: {{ c.pct }}%"></span></span>
+                <span class="eel-bars__n">{{ c.n }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </section>
+
+      {# ------------------------------------------------------ Closing soon #}
+      <section class="eel-card eel-span-4" aria-labelledby="eel-closing">
+        <div class="eel-card__head"><h2 id="eel-closing">Closing in the next 14 days</h2></div>
+        {% if dash.closing %}
+          <ul class="eel-list">
+            {% for o in dash.closing %}
+              <li>
+                <span class="eel-list__main">
+                  <a class="eel-list__title" href="{% url 'admin:opportunities_opportunity_change' o.pk %}">{{ o.title }}</a>
+                  <span class="eel-list__sub">{{ o.organization }}</span>
+                </span>
+                <span class="eel-pill eel-pill--ok">{{ o.application_deadline|date:"j M" }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="eel-empty">No live listings close in the next two weeks.</p>
+        {% endif %}
+      </section>
+
+      {# --------------------------------------------------------- Ingestion #}
+      <section class="eel-card eel-span-4" aria-labelledby="eel-ingest">
+        <div class="eel-card__head">
+          <h2 id="eel-ingest">Automatic ingestion</h2>
+          {% if dash.logs is not None %}<a href="{% url 'admin:ingestion_fetchlog_changelist' %}">All runs →</a>{% endif %}
+        </div>
+        {% if dash.sources.failing %}
+          <ul class="eel-list">
+            {% for s in dash.sources.failing %}
+              <li>
+                <span class="eel-list__main">
+                  <a class="eel-list__title" href="{% url 'admin:ingestion_fetchsource_change' s.pk %}">{{ s.name }}</a>
+                  <span class="eel-list__sub">{{ s.last_error|truncatechars:70 }}</span>
+                </span>
+                <span class="eel-pill eel-pill--bad">{{ s.consecutive_failures }} fail{{ s.consecutive_failures|pluralize }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        {% if dash.logs %}
+          <ul class="eel-list">
+            {% for log in dash.logs %}
+              <li>
+                <span class="eel-list__main">
+                  <span class="eel-list__title">{{ log.source.name }}</span>
+                  <span class="eel-list__sub">{{ log.age }} ago · {{ log.items_created }} new of {{ log.items_found }}</span>
+                </span>
+                <span class="eel-pill {% if log.status == 'success' %}eel-pill--ok{% elif log.status == 'partial' %}eel-pill--warn{% else %}eel-pill--bad{% endif %}">{{ log.status|capfirst }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% elif dash.sources %}
+          <p class="eel-empty">No fetch runs yet.{% if not dash.sources.active %} <a href="{% url 'admin:ingestion_fetchsource_add' %}">Add an RSS source</a> and the scheduled job will pick it up.{% endif %}</p>
+        {% endif %}
+        {% if dash.enrich_waiting %}<p class="eel-empty">{{ dash.enrich_waiting }} listing{{ dash.enrich_waiting|pluralize }} waiting for image/summary enrichment.</p>{% endif %}
+      </section>
+
+      {# ---------------------------------------------------- Recent actions #}
+      <section class="eel-card eel-span-4 eel-actions" aria-labelledby="eel-recent">
+        <div class="eel-card__head"><h2 id="eel-recent">{% translate 'My actions' %}</h2></div>
+        {% if dash.my_actions %}
+          <ul class="eel-list">
+            {% for entry in dash.my_actions %}
+              <li>
+                <span class="eel-list__main">
+                  {% if entry.is_deletion or not entry.get_admin_url %}
+                    <span class="eel-list__title">{{ entry.object_repr }}</span>
+                  {% else %}
+                    <a class="eel-list__title" href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+                  {% endif %}
+                  <span class="eel-list__sub">{% if entry.content_type %}{{ entry.content_type.name|capfirst }}{% endif %} · {{ entry.age }} ago</span>
+                </span>
+                <span class="eel-pill {% if entry.is_addition %}eel-pill--ok{% elif entry.is_deletion %}eel-pill--bad{% else %}eel-pill--warn{% endif %}">{% if entry.is_addition %}Added{% elif entry.is_deletion %}Deleted{% else %}Changed{% endif %}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="eel-empty">{% translate 'None available' %}</p>
+        {% endif %}
+      </section>
+    </div>
+    {% endif %}
+
+    {# ------------------------------------------------------------ Visitors #}
+    {% if dash.visitors %}{% with v=dash.visitors %}
+    <h2 class="eel-section-title">Visitors, last 30 days</h2>
+    <div class="eel-kpis">
+      <a class="eel-kpi" href="{% url 'admin:analytics_visitor_changelist' %}">
+        <div class="eel-kpi__label">Visitors</div>
+        <div class="eel-kpi__value">{{ v.total }}</div>
+        <div class="eel-kpi__hint">{{ v.week }} in the last 7 days</div>
+      </a>
+      <div class="eel-kpi">
+        <div class="eel-kpi__label">Came back</div>
+        <div class="eel-kpi__value">{{ v.returning_pct }}%</div>
+        <div class="eel-kpi__hint">{{ v.returning }} returning · {{ v.new }} new</div>
+      </div>
+      <a class="eel-kpi" href="{% url 'admin:analytics_pageview_changelist' %}?starts_visit__exact=1">
+        <div class="eel-kpi__label">Visits</div>
+        <div class="eel-kpi__value">{{ v.visits }}</div>
+        <div class="eel-kpi__hint">{{ v.page_views }} pages viewed</div>
+      </a>
+    </div>
+
+    <div class="eel-grid">
+      <section class="eel-card eel-span-4" aria-labelledby="eel-visitors">
+        <div class="eel-card__head"><h2 id="eel-visitors">Visitors per day</h2></div>
+        <div class="eel-chart" role="img" aria-label="Unique visitors per day over the last 14 days">
+          {% for d in v.daily %}
+            <div class="eel-chart__bar{% if not d.count %} is-zero{% endif %}" title="{{ d.day|date:'D j M' }}: {{ d.count }}">
+              <span style="height: {% if d.count %}{{ d.pct }}%{% else %}3px{% endif %}"></span>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="eel-chart__axis"><span>{{ v.daily.0.day|date:"j M" }}</span><span>Today</span></div>
+
+        <div class="eel-bars" aria-label="How many times visitors have come">
+          {% for b in v.frequency %}
+            <div class="eel-bars__row">
+              <span>{{ b.label }}</span>
+              <span class="eel-bars__track"><span class="eel-bars__fill" style="width: {{ b.pct }}%"></span></span>
+              <span class="eel-bars__n">{{ b.n }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="eel-card eel-span-4" aria-labelledby="eel-sources">
+        <div class="eel-card__head"><h2 id="eel-sources">Where visits come from</h2></div>
+        {% if v.sources %}
+          <div class="eel-bars" style="margin-top: 0">
+            {% for s in v.sources %}
+              <div class="eel-bars__row">
+                <span title="{{ s.label }}">{{ s.label|truncatechars:24 }}</span>
+                <span class="eel-bars__track"><span class="eel-bars__fill" style="width: {{ s.pct }}%"></span></span>
+                <span class="eel-bars__n">{{ s.n }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="eel-empty">No visits recorded yet.</p>
+        {% endif %}
+      </section>
+
+      <section class="eel-card eel-span-4" aria-labelledby="eel-pages">
+        <div class="eel-card__head"><h2 id="eel-pages">Most viewed pages</h2></div>
+        {% if v.pages %}
+          <div class="eel-bars" style="margin-top: 0">
+            {% for p in v.pages %}
+              <div class="eel-bars__row">
+                <span title="{{ p.label }}">{{ p.label|truncatechars:24 }}</span>
+                <span class="eel-bars__track"><span class="eel-bars__fill" style="width: {{ p.pct }}%"></span></span>
+                <span class="eel-bars__n">{{ p.n }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="eel-empty">No page views recorded yet.</p>
+        {% endif %}
+      </section>
+    </div>
+    {% endwith %}{% endif %}
+  </div>
+
+  <h2 class="eel-section-title">Manage</h2>
+  {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+</div>
+{% endblock %}
+
+{% block sidebar %}{% endblock %}

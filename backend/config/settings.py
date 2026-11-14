@@ -1,0 +1,372 @@
+"""
+Django settings for the EEL opportunity portal.
+
+Env-driven throughout — same philosophy as the Flask config.py it replaces,
+so dev/test/prod run off different env vars with no code changes.
+"""
+
+import os
+from datetime import timedelta
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+DEBUG = os.environ.get("DEBUG", "False") == "True"
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+if not DEBUG and SECRET_KEY in ("", "dev-secret-change-me", "change-me"):
+    # Signing JWTs with a publicly known key would let anyone mint tokens.
+    raise RuntimeError("SECRET_KEY must be set to a real secret when DEBUG=False")
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+# Render sets this to the service's public hostname (e.g. eel-api.onrender.com).
+if os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
+    ALLOWED_HOSTS.append(os.environ["RENDER_EXTERNAL_HOSTNAME"])
+
+
+# ---------------------------------------------------------------------------
+# Applications
+# ---------------------------------------------------------------------------
+
+INSTALLED_APPS = [
+    "config.apps.EELAdminConfig",   # django.contrib.admin with the EEL dashboard (config/admin_site.py)
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+
+    # Third-party
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "corsheaders",
+    "django_filters",
+
+    # Local apps
+    "apps.accounts",
+    "apps.opportunities",
+    "apps.ingestion",
+    "apps.analytics",
+    "apps.companies",
+]
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",              # must sit above CommonMiddleware
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+if not DEBUG:
+    # Serves admin CSS/JS under gunicorn; runserver already does this in dev.
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+
+ROOT_URLCONF = "config.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],   # admin dashboard + branding overrides
+        "APP_DIRS": True,   # Django admin's templates need this
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
+
+
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+# DATABASE_URL parsed by hand (one less dependency than dj-database-url) —
+# postgres://user:pass@host:port/dbname
+
+def _parse_database_url(url: str) -> dict:
+    from urllib.parse import unquote, urlparse
+
+    parsed = urlparse(url)
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": parsed.path.lstrip("/"),
+        # Percent-decoded so passwords containing @ : / etc. can be
+        # URL-encoded (e.g. @ -> %40) as hosts like Supabase expect.
+        "USER": unquote(parsed.username) if parsed.username else None,
+        "PASSWORD": unquote(parsed.password) if parsed.password else None,
+        "HOST": parsed.hostname,
+        "PORT": parsed.port or 5432,
+        # Connection pooling / resilience — mirrors the Flask
+        # SQLALCHEMY_ENGINE_OPTIONS pool settings.
+        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", 300)),
+        # Check reused connections are alive before using them, so a Supabase
+        # restart or dropped pooler connection doesn't surface as errors.
+        "CONN_HEALTH_CHECKS": True,
+        "OPTIONS": {"connect_timeout": 10},
+    }
+
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://localhost:5432/eel")
+DATABASES = {"default": _parse_database_url(DATABASE_URL)}
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+AUTH_USER_MODEL = "accounts.User"
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+
+# ---------------------------------------------------------------------------
+# Django REST Framework + JWT
+# ---------------------------------------------------------------------------
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        # Like simplejwt's JWTAuthentication, but an expired/invalid token is
+        # treated as anonymous so public endpoints don't 401.
+        "apps.accounts.authentication.OptionalJWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+    ),
+    "DEFAULT_FILTER_BACKENDS": (
+        "django_filters.rest_framework.DjangoFilterBackend",
+    ),
+    # Same as DRF's PageNumberPagination, plus ?page_size= (capped by MAX_PAGE_SIZE).
+    "DEFAULT_PAGINATION_CLASS": "config.pagination.StandardPagination",
+    "PAGE_SIZE": int(os.environ.get("DEFAULT_PAGE_SIZE", 20)),
+    # Only views that set throttle_scope are throttled — login and register,
+    # to slow down password guessing and sign-up spam, and the page-view
+    # beacon, so one client can't flood the visitor stats.
+    "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
+    "DEFAULT_THROTTLE_RATES": {
+        "auth": os.environ.get("AUTH_THROTTLE_RATE", "10/min"),
+        "analytics": os.environ.get("ANALYTICS_THROTTLE_RATE", "60/min"),
+        # Company accounts and in-app applications (apps/companies/views.py).
+        "company_signup": os.environ.get("COMPANY_SIGNUP_THROTTLE_RATE", "5/hour"),
+        "company_jobs": os.environ.get("COMPANY_JOBS_THROTTLE_RATE", "30/hour"),
+        "applications": os.environ.get("APPLICATIONS_THROTTLE_RATE", "20/hour"),
+        "uploads": os.environ.get("UPLOADS_THROTTLE_RATE", "20/hour"),
+        # Team invitations send email to addresses a company types in.
+        "company_invites": os.environ.get("COMPANY_INVITES_THROTTLE_RATE", "20/hour"),
+    },
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    "ROTATE_REFRESH_TOKENS": True,
+    # Refuses refresh tokens issued before a password reset, or for
+    # deactivated accounts (apps/accounts/authentication.py).
+    "TOKEN_REFRESH_SERIALIZER": "apps.accounts.authentication.CurrentTokenRefreshSerializer",
+}
+
+# "Sign in with Google": the OAuth client ID from Google Cloud Console
+# (APIs & Services -> Credentials -> Web application). The frontend uses the
+# same ID as VITE_GOOGLE_CLIENT_ID. Unset = Google sign-in is switched off.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+
+# Mirrors models.EARLY_ACCESS_WINDOW from the Flask version — how long free
+# users wait after approval before an opportunity becomes visible to them.
+EARLY_ACCESS_HOURS = int(os.environ.get("EARLY_ACCESS_HOURS", 48))
+# Premium is frozen until further notice: everyone sees listings as soon as
+# they're approved. Set PREMIUM_ENABLED=True (and VITE_PREMIUM_ENABLED=true
+# on the frontend) to bring back the early-access window — free_access_at is
+# still recorded on every approval, so nothing needs backfilling.
+PREMIUM_ENABLED = os.environ.get("PREMIUM_ENABLED", "False") == "True"
+MAX_PAGE_SIZE = int(os.environ.get("MAX_PAGE_SIZE", 100))
+
+
+# ---------------------------------------------------------------------------
+# Automatic ingestion (apps/ingestion — see docs/ingestion.md)
+# ---------------------------------------------------------------------------
+# Production: run `python manage.py run_ingestion_worker` as its own process.
+# Development: with INGESTION_AUTOSTART on (the default while DEBUG=True),
+# `runserver` starts the same worker in a background thread.
+
+INGESTION_AUTOSTART = os.environ.get("INGESTION_AUTOSTART", str(DEBUG)) == "True"
+INGESTION_WORKER_INTERVAL_SECONDS = int(os.environ.get("INGESTION_WORKER_INTERVAL_SECONDS", 60))
+INGESTION_SOURCE_BATCH = int(os.environ.get("INGESTION_SOURCE_BATCH", 10))
+INGESTION_ENRICH_BATCH = int(os.environ.get("INGESTION_ENRICH_BATCH", 25))
+INGESTION_USER_AGENT = os.environ.get(
+    "INGESTION_USER_AGENT", "EELBot/1.0 (+https://github.com/Tanseychuong/EEL)"
+)
+
+# Public landing-page stats are cached briefly so the homepage doesn't run
+# several COUNT queries on every visit.
+LANDING_STATS_CACHE_SECONDS = int(os.environ.get("LANDING_STATS_CACHE_SECONDS", 120))
+
+
+# ---------------------------------------------------------------------------
+# Logging — the worker logs what it fetched/enriched; send it to stdout so
+# the hosting platform's log viewer picks it up.
+# ---------------------------------------------------------------------------
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"plain": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "plain"}},
+    "loggers": {
+        "apps": {"handlers": ["console"], "level": os.environ.get("APP_LOG_LEVEL", "INFO"), "propagate": False},
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# CORS
+# ---------------------------------------------------------------------------
+
+# The production sites are always allowed. CORS_ALLOWED_ORIGINS (comma-
+# separated) adds more, e.g. a preview deploy; local dev adds the Vite server.
+_PRODUCTION_ORIGINS = [
+    "https://globalopportunities.live",
+    "https://www.globalopportunities.live",
+    "https://eel-web.onrender.com",
+]
+_extra_origins = [o.strip().rstrip("/") for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
+_dev_origins = ["http://localhost:5173", "http://127.0.0.1:5173"] if DEBUG else []
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_PRODUCTION_ORIGINS + _extra_origins + _dev_origins))
+
+# Needed for logins, submissions and anything that POSTs
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+
+# Canonical public site, used for sitemap.xml and email links (config/seo.py).
+SITE_URL = os.environ.get("SITE_URL", "https://globalopportunities.live").rstrip("/")
+# Where reset-password links and the admin's "View site" link go.
+FRONTEND_URL = os.environ.get("FRONTEND_URL", SITE_URL)
+# Render deploy hook for the static site. When set, suspending a company or
+# rejecting a live listing rebuilds the site at once, so its pre-rendered
+# pages come down (config/seo.py: request_site_rebuild).
+FRONTEND_DEPLOY_HOOK = os.environ.get("FRONTEND_DEPLOY_HOOK", "")
+
+# How long applications are kept after their job closes, in days. Blank =
+# keep until the applicant withdraws or deletes their account (the default
+# until a retention period is decided). Enforced by
+# `manage.py prune_applications`; keep the Privacy notice in sync.
+APPLICATION_RETENTION_DAYS = int(os.environ["APPLICATION_RETENTION_DAYS"]) if os.environ.get("APPLICATION_RETENTION_DAYS") else None
+
+
+# ---------------------------------------------------------------------------
+# Email (password reset). Render's free plan blocks SMTP, so production sends
+# through Brevo's HTTP API when BREVO_API_KEY is set; otherwise emails are
+# printed to the console (handy in dev).
+# ---------------------------------------------------------------------------
+
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
+EMAIL_BACKEND = (
+    "apps.accounts.email_backends.BrevoEmailBackend"
+    if BREVO_API_KEY
+    else "django.core.mail.backends.console.EmailBackend"
+)
+# Must be a sender address verified in Brevo.
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Global Opportunities <no-reply@localhost>")
+# How long a password reset link stays valid (seconds).
+PASSWORD_RESET_TIMEOUT = int(os.environ.get("PASSWORD_RESET_TIMEOUT", 3600))
+
+
+# ---------------------------------------------------------------------------
+# HTTPS hardening — on whenever DEBUG is off. Hosts like Render/Railway/Heroku
+# terminate TLS at a proxy and pass the original scheme in X-Forwarded-Proto.
+# ---------------------------------------------------------------------------
+
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True") == "True"
+    SECURE_REDIRECT_EXEMPT = [r"^health/$"]   # platform health checks may probe over plain HTTP
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # Off by default: once a browser sees HSTS it refuses plain HTTP for the
+    # whole period. Set e.g. 31536000 after confirming HTTPS works end to end.
+    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", 0))
+    CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+
+
+# ---------------------------------------------------------------------------
+# I18N / static
+# ---------------------------------------------------------------------------
+
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "UTC"
+USE_I18N = True
+USE_TZ = True
+
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"   # filled by collectstatic, served by WhiteNoise
+# Media (user uploads — currently just profile pictures). Production stores
+# them in a public Supabase Storage bucket through its S3-compatible API;
+# local dev keeps them on disk under MEDIA_ROOT (served by config/urls.py).
+# Keys come from Supabase → Project Settings → Storage → S3 Connection.
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")      # https://<ref>.supabase.co
+SUPABASE_STORAGE_BUCKET = os.environ.get("SUPABASE_STORAGE_BUCKET", "")
+
+if SUPABASE_URL and SUPABASE_STORAGE_BUCKET:
+    _media_storage = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": SUPABASE_STORAGE_BUCKET,
+            "endpoint_url": f"{SUPABASE_URL}/storage/v1/s3",
+            "region_name": os.environ.get("SUPABASE_S3_REGION", "us-east-1"),
+            "access_key": os.environ.get("SUPABASE_S3_ACCESS_KEY_ID"),
+            "secret_key": os.environ.get("SUPABASE_S3_SECRET_ACCESS_KEY"),
+            "addressing_style": "path",
+            "signature_version": "s3v4",
+            "default_acl": None,          # Supabase manages access per bucket, not per object
+            "file_overwrite": False,      # a re-upload gets a new name, so stale CDN copies don't linger
+            "querystring_auth": False,    # bucket is public — plain, non-expiring URLs
+            # Public object URL: https://<ref>.supabase.co/storage/v1/object/public/<bucket>/<key>
+            "custom_domain": f"{SUPABASE_URL.split('://', 1)[-1]}/storage/v1/object/public/{SUPABASE_STORAGE_BUCKET}",
+        },
+    }
+elif not DEBUG:
+    # Most hosts wipe local disk on deploy, and Django doesn't serve MEDIA
+    # with DEBUG off — uploads would silently disappear.
+    raise RuntimeError("Set SUPABASE_URL and SUPABASE_STORAGE_BUCKET (and S3 keys) when DEBUG=False")
+else:
+    _media_storage = {"BACKEND": "django.core.files.storage.FileSystemStorage"}
+
+# Application files (CVs, transcripts...) are personal data: they go to a
+# separate PRIVATE bucket, never the public one, and are only ever streamed
+# through the signed-in download endpoint. Create a private bucket in
+# Supabase and set SUPABASE_PRIVATE_BUCKET. Until then they fall back to the
+# default storage under unguessable names, and `manage.py check --deploy`
+# warns (apps/companies/checks.py).
+SUPABASE_PRIVATE_BUCKET = os.environ.get("SUPABASE_PRIVATE_BUCKET", "")
+if SUPABASE_URL and SUPABASE_PRIVATE_BUCKET and "OPTIONS" in _media_storage:
+    _private_options = {k: v for k, v in _media_storage["OPTIONS"].items() if k != "custom_domain"}
+    _application_storage = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {**_private_options, "bucket_name": SUPABASE_PRIVATE_BUCKET, "querystring_auth": True,
+                    "querystring_expire": 300},
+    }
+else:
+    _application_storage = _media_storage
+
+STORAGES = {
+    "default": _media_storage,
+    "applications": _application_storage,
+    # The manifest backend needs collectstatic to have run, so dev/tests keep
+    # Django's plain storage.
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage" if DEBUG
+                    else "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", 5))

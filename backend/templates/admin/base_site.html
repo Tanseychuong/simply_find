@@ -1,0 +1,166 @@
+{% extends "admin/base.html" %}
+{# EEL branding for every admin page: the frontend's moss/neutral palette mapped onto Django admin's CSS variables, light and dark. #}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  :root, html[data-theme="light"] {
+    --primary: #3f6b4e;
+    --secondary: #2f5240;
+    --accent: #e9d9a6;
+    --primary-fg: #ffffff;
+    --body-fg: #151513;
+    --body-bg: #f7f6f2;
+    --body-quiet-color: #5e5e57;
+    --body-medium-color: #34342f;
+    --body-loud-color: #000000;
+    --header-color: #e9d9a6;
+    --header-branding-color: #ffffff;
+    --header-bg: #23392d;
+    --header-link-color: #ffffff;
+    --breadcrumbs-fg: #cfe0d3;
+    --breadcrumbs-link-fg: #ffffff;
+    --breadcrumbs-bg: #3f6b4e;
+    --link-fg: #3f6b4e;
+    --link-hover-color: #23392d;
+    --link-selected-fg: #2f5240;
+    --hairline-color: #e6e3da;
+    --border-color: #d6d2c6;
+    --darkened-bg: #efede6;
+    --selected-bg: #e6e3da;
+    --selected-row: #f3ecd2;
+    --button-bg: #3f6b4e;
+    --button-hover-bg: #2f5240;
+    --default-button-bg: #2f5240;
+    --default-button-hover-bg: #3f6b4e;
+    --message-success-bg: #e3efe5;
+    --message-warning-bg: #f6eed2;
+    --message-error-bg: #f8e3e0;
+
+    --eel-surface: #ffffff;
+    --eel-ok: #2f7a4b;
+    --eel-ok-bg: #e3efe5;
+    --eel-warn: #94701f;
+    --eel-warn-bg: #f6eed2;
+    --eel-bad: #b0392b;
+    --eel-bad-bg: #f8e3e0;
+    --eel-bar: #3f6b4e;
+    --eel-bar-quiet: #cfdcd2;
+    --eel-shadow: 0 1px 2px rgba(21, 21, 19, 0.06), 0 2px 8px rgba(21, 21, 19, 0.04);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --primary: #2f5240;
+      --secondary: #2a4434;
+      --primary-fg: #ecede7;
+      --body-fg: #ecede7;
+      --body-bg: #111311;
+      --body-quiet-color: #a5a79e;
+      --body-medium-color: #d4d6ce;
+      --body-loud-color: #ffffff;
+      --header-bg: #0c0e0c;
+      --header-color: #d7b766;
+      --breadcrumbs-fg: #a5a79e;
+      --breadcrumbs-link-fg: #ecede7;
+      --breadcrumbs-bg: #1d2a21;
+      --link-fg: #93ba9c;
+      --link-hover-color: #b9d4be;
+      --link-selected-fg: #b9d4be;
+      --hairline-color: #262a26;
+      --border-color: #343934;
+      --darkened-bg: #181b18;
+      --selected-bg: #1d211d;
+      --selected-row: #2a2a1c;
+      --button-bg: #3f6b4e;
+      --button-hover-bg: #4d8060;
+      --default-button-bg: #4d8060;
+      --default-button-hover-bg: #3f6b4e;
+      --message-success-bg: #1d3524;
+      --message-warning-bg: #3b3117;
+      --message-error-bg: #3d1d19;
+
+      --eel-surface: #181b18;
+      --eel-ok: #8fc79e;
+      --eel-ok-bg: #1d3524;
+      --eel-warn: #d7b766;
+      --eel-warn-bg: #3b3117;
+      --eel-bad: #ee8b7d;
+      --eel-bad-bg: #3d1d19;
+      --eel-bar: #93ba9c;
+      --eel-bar-quiet: #2a3a2e;
+      --eel-shadow: none;
+    }
+  }
+
+  html[data-theme="dark"] {
+    --primary: #2f5240;
+    --secondary: #2a4434;
+    --primary-fg: #ecede7;
+    --body-fg: #ecede7;
+    --body-bg: #111311;
+    --body-quiet-color: #a5a79e;
+    --body-medium-color: #d4d6ce;
+    --body-loud-color: #ffffff;
+    --header-bg: #0c0e0c;
+    --header-color: #d7b766;
+    --breadcrumbs-fg: #a5a79e;
+    --breadcrumbs-link-fg: #ecede7;
+    --breadcrumbs-bg: #1d2a21;
+    --link-fg: #93ba9c;
+    --link-hover-color: #b9d4be;
+    --link-selected-fg: #b9d4be;
+    --hairline-color: #262a26;
+    --border-color: #343934;
+    --darkened-bg: #181b18;
+    --selected-bg: #1d211d;
+    --selected-row: #2a2a1c;
+    --button-bg: #3f6b4e;
+    --button-hover-bg: #4d8060;
+    --default-button-bg: #4d8060;
+    --default-button-hover-bg: #3f6b4e;
+    --message-success-bg: #1d3524;
+    --message-warning-bg: #3b3117;
+    --message-error-bg: #3d1d19;
+
+    --eel-surface: #181b18;
+    --eel-ok: #8fc79e;
+    --eel-ok-bg: #1d3524;
+    --eel-warn: #d7b766;
+    --eel-warn-bg: #3b3117;
+    --eel-bad: #ee8b7d;
+    --eel-bad-bg: #3d1d19;
+    --eel-bar: #93ba9c;
+    --eel-bar-quiet: #2a3a2e;
+    --eel-shadow: none;
+  }
+
+  #header { padding: 12px 32px; }
+  #site-name { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: 0.01em; }
+  #site-name a { display: inline-flex; align-items: center; gap: 10px; }
+  .eel-mark {
+    display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 8px;
+    background: #e9d9a6; color: #23392d; font: 700 0.8rem/1 var(--font-family-primary); letter-spacing: 0.04em;
+  }
+  .module, .inline-group, fieldset.module { border-radius: 10px; }
+  .module h2, .module caption, .inline-group h2 { border-radius: 10px 10px 0 0; }
+  /* Status pills — dashboard lists and admin.py's *_badge columns. */
+  .eel-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; white-space: nowrap; }
+  .eel-pill--ok { color: var(--eel-ok); background: var(--eel-ok-bg); }
+  .eel-pill--warn { color: var(--eel-warn); background: var(--eel-warn-bg); }
+  .eel-pill--bad { color: var(--eel-bad); background: var(--eel-bad-bg); }
+  .eel-pill--quiet { color: var(--body-quiet-color); background: var(--darkened-bg); }
+</style>
+{% endblock %}
+
+{% block branding %}
+<div id="site-name">
+  <a href="{% url 'admin:index' %}"><span class="eel-mark" aria-hidden="true">GO</span>{{ site_header|default:_('Django administration') }}</a>
+</div>
+{% if user.is_anonymous %}
+  {% include "admin/color_theme_toggle.html" %}
+{% endif %}
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
