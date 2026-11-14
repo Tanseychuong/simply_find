@@ -6,7 +6,7 @@ transcripts and certificates in one place and apply with them.
 
 - `backend/`: Django REST API and admin. API reference: [backend/docs/api.md](backend/docs/api.md).
   Ingestion of listings from feeds: [backend/docs/ingestion.md](backend/docs/ingestion.md).
-- `frontend/`: the website (React 18, Vite, React Router, Tailwind). In progress.
+- `frontend/`: the website (React 18, Vite, React Router, Tailwind), with public pages pre-rendered at build time.
 
 ## Run the website locally
 
@@ -31,5 +31,5 @@ python manage.py runserver
 python -m pytest -q
 ```
 
-Deploys to Render from `render.yaml`. Production needs `SITE_URL`, a
-private storage bucket for students' documents, and a ClamAV scanner.
+Deploys to Render from `render.yaml` (website, API and virus scanner):
+see [docs/deploy.md](docs/deploy.md).
