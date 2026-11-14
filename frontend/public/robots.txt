@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /profile
+Disallow: /applications
+Disallow: /saved
+Disallow: /company
+Disallow: /claim
+Disallow: /verify-email
+Disallow: /reset-password
+Allow: /

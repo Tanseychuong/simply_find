@@ -6,7 +6,16 @@ transcripts and certificates in one place and apply with them.
 
 - `backend/`: Django REST API and admin. API reference: [backend/docs/api.md](backend/docs/api.md).
   Ingestion of listings from feeds: [backend/docs/ingestion.md](backend/docs/ingestion.md).
-- The website comes next.
+- `frontend/`: the website (React 18, Vite, React Router, Tailwind). In progress.
+
+## Run the website locally
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173, proxies /api to the backend on :8000
+npm run lint && npm run build
+```
 
 ## Run the backend locally
 

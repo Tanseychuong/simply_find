@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/* Dark mode follows the `dark` class on <html> (set by ThemeContext). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Colour tokens. Components use the semantic names (bg-surface, text-muted,
+  bg-brand ...) so light and dark mode are switched here, in one place.
+*/
+:root {
+  --c-bg: #f7f8f7;
+  --c-surface: #ffffff;
+  --c-surface-2: #f0f3f2;
+  --c-border: #dfe5e3;
+  --c-text: #14201d;
+  --c-muted: #5b6b67;
+  --c-brand: #0f766e;
+  --c-brand-strong: #0b5c56;
+  --c-brand-soft: #e3f4f1;
+  --c-on-brand: #ffffff;
+  --c-accent: #f59e0b;
+  --c-accent-soft: #fef3c7;
+  --c-danger: #b42318;
+  --c-danger-soft: #fdeceb;
+  --c-success: #15803d;
+  --c-success-soft: #e7f6ec;
+}
+
+.dark {
+  --c-bg: #0d1412;
+  --c-surface: #141e1b;
+  --c-surface-2: #1b2824;
+  --c-border: #293833;
+  --c-text: #e6eeeb;
+  --c-muted: #9aaba6;
+  --c-brand: #2dd4bf;
+  --c-brand-strong: #5eead4;
+  --c-brand-soft: #123631;
+  --c-on-brand: #04201c;
+  --c-accent: #fbbf24;
+  --c-accent-soft: #3a2c0b;
+  --c-danger: #f97066;
+  --c-danger-soft: #3b1513;
+  --c-success: #4ade80;
+  --c-success-soft: #10301c;
+}
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-border: var(--c-border);
+  --color-text: var(--c-text);
+  --color-muted: var(--c-muted);
+  --color-brand: var(--c-brand);
+  --color-brand-strong: var(--c-brand-strong);
+  --color-brand-soft: var(--c-brand-soft);
+  --color-on-brand: var(--c-on-brand);
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-danger: var(--c-danger);
+  --color-danger-soft: var(--c-danger-soft);
+  --color-success: var(--c-success);
+  --color-success-soft: var(--c-success-soft);
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--c-brand);
+  outline-offset: 2px;
+}
