@@ -16,6 +16,14 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import VerifyEmail from "./pages/auth/VerifyEmail";
 import Claim from "./pages/auth/Claim";
 import AccountSecurity from "./pages/account/AccountSecurity";
+import ProfileLayout from "./pages/profile/ProfileLayout";
+import ProfileOverview from "./pages/profile/ProfileOverview";
+import { AboutStep, SkillsStep, StudiesStep } from "./pages/profile/ProfileSteps";
+import DocumentsStep from "./pages/profile/DocumentsStep";
+import AccessLog from "./pages/profile/AccessLog";
+import Apply from "./pages/Apply";
+import MyApplications from "./pages/MyApplications";
+import Saved from "./pages/Saved";
 
 /*
   Route map. Paths marked (fixed) are linked from the backend (emails,
@@ -72,10 +80,21 @@ const router = createBrowserRouter([
           {
             element: <RequireAuth />,
             children: [
-              { path: "/opportunities/:id/apply", element: page("Apply") },
-              { path: "/profile/*", element: page("My profile") },
-              { path: "/applications", element: page("My applications") },
-              { path: "/saved", element: page("Saved roles") },
+              { path: "/opportunities/:id/apply", element: <Apply /> },
+              {
+                path: "/profile",
+                element: <ProfileLayout />,
+                children: [
+                  { index: true, element: <ProfileOverview /> },
+                  { path: "about", element: <AboutStep /> },
+                  { path: "studies", element: <StudiesStep /> },
+                  { path: "skills", element: <SkillsStep /> },
+                  { path: "documents", element: <DocumentsStep /> },
+                  { path: "access", element: <AccessLog /> },
+                ],
+              },
+              { path: "/applications", element: <MyApplications /> },
+              { path: "/saved", element: <Saved /> },
               { path: "/account/security", element: <AccountSecurity /> },
               {
                 element: <RequireCompany />,
