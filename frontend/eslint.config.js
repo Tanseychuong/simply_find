@@ -19,7 +19,7 @@ export default [
       "no-unused-vars": ["error", { varsIgnorePattern: "^[A-Z_]", argsIgnorePattern: "^[A-Z_]" }],
       "react-refresh/only-export-components": [
         "warn",
-        { allowConstantExport: true, allowExportNames: ["useAuth", "useTheme", "cx", "buttonClass", "safeNext"] },
+        { allowConstantExport: true, allowExportNames: ["useAuth", "useTheme", "cx", "buttonClass", "safeNext", "googleEnabled", "PASSWORD_HINT"] },
       ],
     },
   },

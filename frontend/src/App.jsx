@@ -9,6 +9,13 @@ import Home from "./pages/Home";
 import Opportunities from "./pages/Opportunities";
 import OpportunityDetail from "./pages/OpportunityDetail";
 import CompanyPublic from "./pages/CompanyPublic";
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
+import VerifyEmail from "./pages/auth/VerifyEmail";
+import Claim from "./pages/auth/Claim";
+import AccountSecurity from "./pages/account/AccountSecurity";
 
 /*
   Route map. Paths marked (fixed) are linked from the backend (emails,
@@ -47,17 +54,17 @@ const router = createBrowserRouter([
           { path: "/privacy", element: page("Privacy") },
 
           // Links from emails: work signed in or out
-          { path: "/verify-email", element: page("Confirm your email") },
-          { path: "/reset-password", element: page("Choose a new password") },
-          { path: "/claim", element: page("Claim your account") },
+          { path: "/verify-email", element: <VerifyEmail /> },
+          { path: "/reset-password", element: <ResetPassword /> },
+          { path: "/claim", element: <Claim /> },
 
           // Signed out only
           {
             element: <GuestOnly />,
             children: [
-              { path: "/login", element: page("Sign in") },
-              { path: "/register", element: page("Create your account") },
-              { path: "/forgot-password", element: page("Reset your password") },
+              { path: "/login", element: <Login /> },
+              { path: "/register", element: <Register /> },
+              { path: "/forgot-password", element: <ForgotPassword /> },
             ],
           },
 
@@ -69,7 +76,7 @@ const router = createBrowserRouter([
               { path: "/profile/*", element: page("My profile") },
               { path: "/applications", element: page("My applications") },
               { path: "/saved", element: page("Saved roles") },
-              { path: "/account/security", element: page("Account and security") },
+              { path: "/account/security", element: <AccountSecurity /> },
               {
                 element: <RequireCompany />,
                 children: [{ path: "/company/*", element: page("Company dashboard") }],

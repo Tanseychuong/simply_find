@@ -15,5 +15,7 @@ export const authApi = {
   mfaSetup: (password) => api.post("/auth/mfa/setup/", { password }).then((r) => r.data),
   mfaEnable: (code) => api.post("/auth/mfa/enable/", { code }).then((r) => r.data),
   mfaDisable: (password, code) => api.post("/auth/mfa/disable/", { password, code }).then((r) => r.data),
+  claimInfo: (token, config) => api.get("/drives/claim/", { params: { token }, ...config }).then((r) => r.data),
+  claim: (token, password) => api.post("/drives/claim/", { token, password }).then((r) => r.data),
   deleteAccount: (data) => api.post("/auth/me/delete/", data).then((r) => r.data),
 };
