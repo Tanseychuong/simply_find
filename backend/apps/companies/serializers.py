@@ -204,16 +204,28 @@ class AnswerSerializer(serializers.ModelSerializer):
         return bool(obj.file)
 
 
-class ApplicantSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    name = serializers.CharField()
-    email = serializers.EmailField()
+CONTACT_VISIBLE_STATUSES = {Application.Status.SHORTLISTED, Application.Status.HIRED}
+
+
+def applicant_for_company(application) -> dict:
+    """Who applied, as the hiring team sees them. Contact details stay
+    hidden until the team shortlists the applicant, so companies judge the
+    application first, and nobody harvests a list of student emails by
+    posting a role."""
+    visible = application.status in CONTACT_VISIBLE_STATUSES
+    user = application.applicant
+    return {
+        "id": user.pk,
+        "name": user.name,
+        "email": user.email if visible else None,
+        "contact_visible": visible,
+    }
 
 
 class CompanyApplicationSerializer(serializers.ModelSerializer):
     """An application as the hiring company sees it."""
 
-    applicant = ApplicantSerializer(read_only=True)
+    applicant = serializers.SerializerMethodField()
     answers = AnswerSerializer(many=True, read_only=True)
     job_title = serializers.CharField(source="opportunity.title", read_only=True)
 
@@ -221,6 +233,9 @@ class CompanyApplicationSerializer(serializers.ModelSerializer):
         model = Application
         fields = ["id", "job_title", "applicant", "status", "company_note", "submitted_at", "answers"]
         read_only_fields = ["id", "job_title", "applicant", "submitted_at", "answers"]
+
+    def get_applicant(self, obj) -> dict:
+        return applicant_for_company(obj)
 
     def validate_status(self, value):
         if value == Application.Status.WITHDRAWN:

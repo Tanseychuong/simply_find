@@ -55,6 +55,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Google's stable account id ("sub"), set once the user signs in with
     # Google. Matched before email, so a changed Gmail address still works.
     google_sub = models.CharField(max_length=255, unique=True, null=True, blank=True, editable=False)
+    # Set once the person opens the emailed link (apps/accounts/verification.py).
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+
+    # --- Two-step sign-in (apps/accounts/mfa.py) ----------------------------
+    mfa_secret = models.TextField(blank=True, default="", editable=False)   # encrypted
+    mfa_enabled_at = models.DateTimeField(null=True, blank=True, editable=False)
+    mfa_recovery_codes = models.JSONField(default=list, blank=True, editable=False)  # hashed
+    mfa_last_step = models.BigIntegerField(null=True, blank=True, editable=False)
 
     objects = UserManager()
 
@@ -63,6 +71,14 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+    @property
+    def mfa_enabled(self) -> bool:
+        return self.mfa_enabled_at is not None
+
+    @property
+    def email_verified(self) -> bool:
+        return self.email_verified_at is not None
 
     def token_is_current(self, issued_at) -> bool:
         """Was a token issued at `issued_at` (unix seconds) after the last cut-off?

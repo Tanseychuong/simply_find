@@ -58,7 +58,7 @@ def post(client, token_claims=None, error=None, **body):
 
 
 def me(client, res):
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {res.data['access']}")
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {res.cookies['sf_access'].value}")
     return client.get("/api/auth/me/")
 
 

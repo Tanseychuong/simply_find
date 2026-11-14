@@ -43,7 +43,7 @@ class TestRequestingDeletion:
 
     def test_existing_token_stops_working(self, api_client, user):
         token = api_client.post("/api/auth/login/", {"email": user.email, "password": "testpass123"},
-                                format="json").data["access"]
+                                format="json").cookies["sf_access"].value
         _request(api_client, user)
         api_client.force_authenticate(None)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")

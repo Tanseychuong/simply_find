@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     # Third-party
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",   # signing out revokes the refresh token
     "corsheaders",
     "django_filters",
 
@@ -126,7 +127,7 @@ AUTH_USER_MODEL = "accounts.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -157,6 +158,8 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
     "DEFAULT_THROTTLE_RATES": {
         "auth": os.environ.get("AUTH_THROTTLE_RATE", "10/min"),
+        # Token refresh: a page opened in several tabs refreshes in each.
+        "refresh": os.environ.get("REFRESH_THROTTLE_RATE", "60/min"),
         "analytics": os.environ.get("ANALYTICS_THROTTLE_RATE", "60/min"),
         # Company accounts and in-app applications (apps/companies/views.py).
         "company_signup": os.environ.get("COMPANY_SIGNUP_THROTTLE_RATE", "5/hour"),
@@ -169,13 +172,33 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
     "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,   # a stolen, already-used refresh token is useless
     # Refuses refresh tokens issued before a password reset, or for
     # deactivated accounts (apps/accounts/authentication.py).
     "TOKEN_REFRESH_SERIALIZER": "apps.accounts.authentication.CurrentTokenRefreshSerializer",
 }
+
+# Sign-in cookies (apps/accounts/sessions.py). HttpOnly, so JavaScript never
+# sees the tokens. SameSite=Lax suits an API on a subdomain of the site
+# (api.simplyfind.app + simplyfind.app). If the API lives on another
+# site entirely (e.g. *.onrender.com), set AUTH_COOKIE_SAMESITE=None.
+AUTH_ACCESS_COOKIE = "sf_access"
+AUTH_REFRESH_COOKIE = "sf_refresh"
+AUTH_REFRESH_COOKIE_PATH = "/api/auth/"          # the refresh token is only sent to auth endpoints
+AUTH_COOKIE_SECURE = not DEBUG
+AUTH_COOKIE_SAMESITE = os.environ.get("AUTH_COOKIE_SAMESITE", "Lax")
+AUTH_COOKIE_DOMAIN = os.environ.get("AUTH_COOKIE_DOMAIN", "")
+CSRF_COOKIE_SAMESITE = AUTH_COOKIE_SAMESITE
+CSRF_COOKIE_DOMAIN = AUTH_COOKIE_DOMAIN or None
+
+# Applying and creating a company need a confirmed email; staff and company
+# teams need two-step sign-in for applicant data and moderation. Both are
+# only switched off by tests; there is deliberately no environment variable.
+REQUIRE_VERIFIED_EMAIL = True
+REQUIRE_MFA_FOR_STAFF_AND_COMPANIES = True
 
 # "Sign in with Google": the OAuth client ID from Google Cloud Console
 # (APIs & Services -> Credentials -> Web application). The frontend uses the
@@ -238,6 +261,7 @@ CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_PRODUCTION_ORIGINS + _extra_origins +
 
 # Needed for logins, submissions and anything that POSTs
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+CORS_ALLOW_CREDENTIALS = True   # the frontend sends the sign-in cookies
 
 # Canonical public site, used for sitemap.xml and email links (config/seo.py).
 SITE_URL = os.environ.get("SITE_URL", "https://globalopportunities.live").rstrip("/")

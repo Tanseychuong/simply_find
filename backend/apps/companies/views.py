@@ -39,6 +39,8 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.mfa import require_mfa
+from apps.accounts.verification import require_verified_email
 from apps.opportunities.models import Opportunity
 from apps.opportunities.permissions import CanVerifyOpportunity
 from apps.opportunities.serializers import OpportunitySerializer
@@ -79,19 +81,23 @@ from .services import (
 MAX_LOGO_BYTES = 2 * 1024 * 1024
 
 
-def _membership(user) -> CompanyMembership:
-    membership = CompanyMembership.for_user(user)
+def _membership(request) -> CompanyMembership:
+    """The signed-in person's team membership. Company tools reach
+    applicants' personal data, so the session must have passed two-step
+    sign-in (apps/accounts/mfa.py)."""
+    membership = CompanyMembership.for_user(request.user)
     if membership is None:
         raise NotFound("You're not on a company's team yet.")
+    require_mfa(request)
     return membership
 
 
-def _my_company(user) -> Company:
-    return _membership(user).company
+def _my_company(request) -> Company:
+    return _membership(request).company
 
 
-def _profile_manager(user) -> CompanyMembership:
-    membership = _membership(user)
+def _profile_manager(request) -> CompanyMembership:
+    membership = _membership(request)
     if not membership.can_manage:
         raise PermissionDenied("Only owners and admins can change the company profile.")
     return membership
@@ -104,11 +110,11 @@ def _owner_view(company, membership):
     return data
 
 
-def _hiring_company(user) -> Company:
+def _hiring_company(request) -> Company:
     """For endpoints that expose applicants' personal data: only an approved
     company may read or act on applications. A suspended or rejected company
     keeps its records (restored if reinstated) but can't open them."""
-    company = _my_company(user)
+    company = _my_company(request)
     if company.status != Company.Status.APPROVED:
         raise PermissionDenied("Applications are unavailable while your company account is not approved.")
     return company
@@ -128,6 +134,7 @@ class CompanyRegisterView(APIView):
     throttle_scope = "company_signup"
 
     def post(self, request):
+        require_verified_email(request.user)
         serializer = CompanyOwnerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         company = register_company(request.user, serializer.validated_data)
@@ -139,11 +146,11 @@ class MyCompanyView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        membership = _membership(request.user)
+        membership = _membership(request)
         return Response(_owner_view(membership.company, membership))
 
     def patch(self, request):
-        membership = _profile_manager(request.user)
+        membership = _profile_manager(request)
         serializer = CompanyOwnerSerializer(membership.company, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         company = update_company(membership.company, serializer.validated_data)
@@ -163,7 +170,7 @@ class CompanyLogoView(APIView):
 
         from apps.documents.uploads import IMAGE_TYPES, clean_upload_or_400
 
-        membership = _profile_manager(request.user)
+        membership = _profile_manager(request)
         company = membership.company
         upload = request.FILES.get("logo")
         if not upload:
@@ -186,11 +193,11 @@ class MyJobsView(APIView):
         return super().get_throttles() if self.throttle_scope else []
 
     def get(self, request):
-        jobs = _job_queryset(_my_company(request.user)).order_by("-submitted_at")
+        jobs = _job_queryset(_my_company(request)).order_by("-submitted_at")
         return Response(CompanyJobSerializer(jobs, many=True).data)
 
     def post(self, request):
-        company = _my_company(request.user)
+        company = _my_company(request)
         serializer = CompanyJobCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = dict(serializer.validated_data)
@@ -207,11 +214,11 @@ class MyJobDetailView(APIView):
         return super().get_throttles() if self.throttle_scope else []
 
     def get(self, request, pk):
-        job = get_object_or_404(_job_queryset(_my_company(request.user)), pk=pk)
+        job = get_object_or_404(_job_queryset(_my_company(request)), pk=pk)
         return Response(CompanyJobSerializer(job).data)
 
     def patch(self, request, pk):
-        company = _my_company(request.user)
+        company = _my_company(request)
         job = get_object_or_404(Opportunity, pk=pk, company=company)
         serializer = CompanyJobUpdateSerializer(job, data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -225,7 +232,7 @@ class CloseJobView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        company = _my_company(request.user)
+        company = _my_company(request)
         job = get_object_or_404(Opportunity, pk=pk, company=company)
         job.application_deadline = timezone.now()
         job.save(update_fields=["application_deadline"])
@@ -237,7 +244,7 @@ class JobApplicationsView(generics.ListAPIView):
     serializer_class = CompanyApplicationSerializer
 
     def get_queryset(self):
-        job = get_object_or_404(Opportunity, pk=self.kwargs["pk"], company=_hiring_company(self.request.user))
+        job = get_object_or_404(Opportunity, pk=self.kwargs["pk"], company=_hiring_company(self.request))
         return (
             job.applications.exclude(status=Application.Status.WITHDRAWN)
             .select_related("applicant", "opportunity")
@@ -252,7 +259,7 @@ class CompanyApplicationUpdateView(generics.UpdateAPIView):
 
     def get_queryset(self):
         return (
-            Application.objects.filter(opportunity__company=_hiring_company(self.request.user))
+            Application.objects.filter(opportunity__company=_hiring_company(self.request))
             .exclude(status=Application.Status.WITHDRAWN)
             .select_related("applicant", "opportunity__company")
         )
@@ -267,7 +274,7 @@ class TeamView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        membership = _membership(request.user)
+        membership = _membership(request)
         company = membership.company
         members = company.memberships.select_related("user", "invited_by")
         invitations = (company.invitations.filter(accepted_at=None, expires_at__gt=timezone.now())
@@ -286,7 +293,7 @@ class TeamInvitationsView(APIView):
     throttle_scope = "company_invites"
 
     def post(self, request):
-        membership = _membership(request.user)
+        membership = _membership(request)
         serializer = InviteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         invitation, _token = invite_member(membership.company, membership, **serializer.validated_data)
@@ -297,7 +304,7 @@ class TeamInvitationDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, pk):
-        membership = _membership(request.user)
+        membership = _membership(request)
         invitation = get_object_or_404(CompanyInvitation, pk=pk, company=membership.company, accepted_at=None)
         revoke_invitation(invitation, membership)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -307,7 +314,7 @@ class TeamMemberDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def _target(self, request, pk):
-        membership = _membership(request.user)
+        membership = _membership(request)
         target = get_object_or_404(CompanyMembership.objects.select_related("user", "company"),
                                    pk=pk, company=membership.company)
         return membership, target
@@ -414,6 +421,7 @@ class MyApplicationsView(APIView):
         return Response(MyApplicationSerializer(apps, many=True).data)
 
     def post(self, request):
+        require_verified_email(request.user)
         try:
             opportunity_id = int(request.data.get("opportunity"))
         except (TypeError, ValueError):
@@ -456,6 +464,8 @@ class AnswerFileView(APIView):
         )
         if not answer.file:
             raise Http404
+        if answer.application.applicant_id != request.user.pk:
+            require_mfa(request)  # the hiring team: applicants' documents need two-step sign-in
         response = FileResponse(
             answer.file.open("rb"), as_attachment=True, filename=answer.original_filename or "attachment",
         )

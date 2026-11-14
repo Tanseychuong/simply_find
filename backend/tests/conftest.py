@@ -29,6 +29,15 @@ def _no_virus_scanner(settings):
 
 
 @pytest.fixture(autouse=True)
+def _auth_gates_off(settings):
+    # Most tests sign in with force_authenticate and an unconfirmed email.
+    # Email verification and two-step sign-in have their own tests
+    # (test_auth_hardening.py), which switch these back on.
+    settings.REQUIRE_VERIFIED_EMAIL = False
+    settings.REQUIRE_MFA_FOR_STAFF_AND_COMPANIES = False
+
+
+@pytest.fixture(autouse=True)
 def _fast_password_hashing(settings):
     # Real hashers are deliberately slow (~1s per user on this machine);
     # tests create many users. Django's docs recommend this for test runs.

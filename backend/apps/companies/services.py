@@ -10,6 +10,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
+from apps.accounts.verification import require_verified_email
 from apps.documents.uploads import clean_upload_or_400
 from apps.opportunities.models import Opportunity
 
@@ -177,6 +178,8 @@ def accept_invitation(invitation: CompanyInvitation, user) -> CompanyMembership:
     invitation.accepted_at = timezone.now()
     invitation.accepted_by = user
     invitation.save(update_fields=["accepted_at", "accepted_by"])
+    from apps.accounts.verification import mark_verified
+    mark_verified(user)  # the single-use link was emailed to this address
     return membership
 
 
@@ -380,6 +383,7 @@ def _truthy(value) -> bool:
 def submit_application(user, opportunity: Opportunity, data, files) -> Application:
     """`data`/`files` carry one `answer_<requirement id>` entry per requirement,
     plus `consent`: the applicant's agreement to share them with the company."""
+    require_verified_email(user)
     if opportunity.application_method != Opportunity.ApplicationMethod.IN_APP:
         raise ValidationError({"detail": "This job takes applications on the company's own site."})
     if not opportunity.is_visible_to(user) or not opportunity.is_open:

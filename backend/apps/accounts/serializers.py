@@ -21,9 +21,17 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "name", "email", "profile_picture", "role", "company",
-                  "has_password", "google_linked", "created_at"]
+        fields = ["id", "name", "email", "email_verified", "mfa_enabled", "mfa_required", "profile_picture",
+                  "role", "company", "has_password", "google_linked", "created_at"]
         read_only_fields = fields
+
+    email_verified = serializers.BooleanField(read_only=True)
+    mfa_enabled = serializers.BooleanField(read_only=True)
+    mfa_required = serializers.SerializerMethodField()
+
+    def get_mfa_required(self, obj) -> bool:
+        from .mfa import mfa_required_for
+        return mfa_required_for(obj)
 
     def get_has_password(self, obj) -> bool:
         return obj.has_usable_password()

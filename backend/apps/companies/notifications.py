@@ -114,7 +114,8 @@ def application_received(application):
     _send(
         f"Application sent: {job.title} at {company.name}",
         f"Hi {application.applicant.name},\n\nYour application for {job.title} at {company.name} was sent. "
-        f"{company.name} now has your name, email address and answers.\n\n"
+        f"{company.name} can now read your answers and documents. They see your email address only if "
+        f"they shortlist you.\n\n"
         f"Track or withdraw it here: {settings.SITE_URL}/applications",
         [application.applicant.email],
     )

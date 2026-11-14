@@ -1,4 +1,7 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from rest_framework import exceptions
+from rest_framework.authentication import CSRFCheck
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken
@@ -24,9 +27,35 @@ class OptionalJWTAuthentication(JWTAuthentication):
 
     def authenticate(self, request):
         try:
-            return super().authenticate(request)
+            if self.get_header(request) is not None:
+                return super().authenticate(request)
+            return self._authenticate_cookie(request)
         except (InvalidToken, AuthenticationFailed):
             return None
+
+    def _authenticate_cookie(self, request):
+        """The browser's HttpOnly session cookie (apps/accounts/sessions.py).
+        The browser sends cookies by itself, so a state-changing request
+        must also prove it came from our frontend: the CSRF token."""
+        raw = request.COOKIES.get(settings.AUTH_ACCESS_COOKIE)
+        if not raw:
+            return None
+        validated = self.get_validated_token(raw.encode())
+        user = self.get_user(validated)
+        self._enforce_csrf(request)
+        return user, validated
+
+    @staticmethod
+    def _enforce_csrf(request):
+        def dummy_get_response(_request):  # pragma: no cover - never called
+            return None
+
+        check = CSRFCheck(dummy_get_response)
+        check.process_request(request)
+        reason = check.process_view(request, None, (), {})
+        if reason:
+            # Not swallowed by authenticate(): a forged request must fail loudly.
+            raise exceptions.PermissionDenied(f"CSRF failed: {reason}")
 
     def get_user(self, validated_token):
         user = super().get_user(validated_token)
