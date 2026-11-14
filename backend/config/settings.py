@@ -327,7 +327,12 @@ if not DEBUG:
     # Off by default: once a browser sees HSTS it refuses plain HTTP for the
     # whole period. Set e.g. 31536000 after confirming HTTPS works end to end.
     SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", 0))
-    CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+    # The website (SITE_URL, FRONTEND_URL, CORS_ALLOWED_ORIGINS) must stay
+    # trusted: every signed-in POST from it carries the CSRF token from that
+    # origin. CSRF_TRUSTED_ORIGINS only adds more (e.g. the API's own host for
+    # the Django admin). Replacing the list here made signed-in writes fail.
+    _extra_csrf = [o.strip().rstrip("/") for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS + _extra_csrf))
 
 
 # ---------------------------------------------------------------------------
