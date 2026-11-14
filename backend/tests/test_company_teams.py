@@ -220,7 +220,7 @@ class TestTeamAndApplicants:
         req = job.requirements.create(label="CV", kind="file")
         _, applicant_c = person("applicant@mail.test")
         applicant_c.post("/api/applications/", {"opportunity": job.pk, "consent": "true",
-                                                f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF")},
+                                                f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF-1.4 cv")},
                          format="multipart")
         return job
 
@@ -314,7 +314,7 @@ class TestReviewFixes:
         req = job.requirements.create(label="CV", kind="file")
         _, applicant_c = person("applicant@mail.test")
         applicant_c.post("/api/applications/", {"opportunity": job.pk, "consent": "true",
-                                                f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF")},
+                                                f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF-1.4 cv")},
                          format="multipart")
         answer = ApplicationAnswer.objects.get()
         assert applicant_c.get(f"/api/applications/answers/{answer.pk}/file/").status_code == 200

@@ -21,7 +21,7 @@ def _apply(client, job):
     why = job.requirements.get(label="Why us?")
     return client.post("/api/applications/", {
         "opportunity": job.pk, "consent": "true",
-        f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF"), f"answer_{why.pk}": "Because.",
+        f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF-1.4 cv"), f"answer_{why.pk}": "Because.",
     }, format="multipart")
 
 
@@ -86,7 +86,7 @@ class TestDoubleSubmit:  # finding 6
                 submit_application(user, live_job, {"consent": "true",
                                                     f"answer_{live_job.requirements.get(label='Why us?').pk}": "x",
                                                     }, {f"answer_{live_job.requirements.get(label='CV').pk}":
-                                                        SimpleUploadedFile("cv.pdf", b"%PDF")})
+                                                        SimpleUploadedFile("cv.pdf", b"%PDF-1.4 cv")})
         assert "already applied" in str(exc.value.detail)
 
 

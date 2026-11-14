@@ -77,7 +77,6 @@ from .services import (
 )
 
 MAX_LOGO_BYTES = 2 * 1024 * 1024
-LOGO_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
 
 
 def _membership(user) -> CompanyMembership:
@@ -161,22 +160,18 @@ class CompanyLogoView(APIView):
 
     def post(self, request):
         from django.core.files.storage import default_storage
-        from PIL import Image, UnidentifiedImageError
+
+        from apps.documents.uploads import IMAGE_TYPES, clean_upload_or_400
 
         membership = _profile_manager(request.user)
         company = membership.company
         upload = request.FILES.get("logo")
         if not upload:
             raise ValidationError({"logo": "Choose an image to upload."})
-        suffix = Path(upload.name).suffix.lower()
-        if suffix not in LOGO_SUFFIXES or upload.size > MAX_LOGO_BYTES:
-            raise ValidationError({"logo": "Upload a PNG, JPG or WebP image up to 2 MB."})
-        try:
-            Image.open(upload).verify()  # reject files that only pretend to be images
-        except (UnidentifiedImageError, OSError):
-            raise ValidationError({"logo": "That file isn't a valid image."})
-        upload.seek(0)
-        name = default_storage.save(f"company_logos/{company.slug}{suffix}", upload)
+        # Re-encoded (metadata stripped, at most 800px) and virus-scanned.
+        logo = clean_upload_or_400(upload, "logo", allowed=IMAGE_TYPES, max_bytes=MAX_LOGO_BYTES, max_image_side=800)
+        suffix = Path(logo.file.name).suffix
+        name = default_storage.save(f"company_logos/{company.slug}{suffix}", logo.file)
         url = default_storage.url(name)
         company.logo_url = url if url.startswith("http") else request.build_absolute_uri(url)
         company.save(update_fields=["logo_url", "updated_at"])

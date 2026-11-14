@@ -86,7 +86,7 @@ class TestProfilePicture:
         response = api_client.patch("/api/auth/me/", {"profile_picture": _png()}, format="multipart")
         assert response.status_code == 200
         assert response.data["profile_picture"].startswith("http")
-        assert "profile_pics/avatar" in response.data["profile_picture"]
+        assert "profile_pics/" in response.data["profile_picture"] and "avatar" not in response.data["profile_picture"]
 
     def test_oversized_upload_rejected(self, api_client, user, settings, tmp_path):
         settings.MEDIA_ROOT = tmp_path

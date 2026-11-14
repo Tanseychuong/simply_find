@@ -85,7 +85,7 @@ class TestPurging:
         req = job.requirements.create(label="CV", kind="file")
         api_client.force_authenticate(user)
         api_client.post("/api/applications/", {"opportunity": job.pk, "consent": "true",
-                                               f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF")},
+                                               f"answer_{req.pk}": SimpleUploadedFile("cv.pdf", b"%PDF-1.4 cv")},
                         format="multipart")
         stored = ApplicationAnswer.objects.get().file.path
         assert os.path.exists(stored)

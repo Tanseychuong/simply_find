@@ -5,12 +5,12 @@ path (including the emails each action sends).
 """
 
 import re
-from pathlib import Path
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
+from apps.documents.uploads import clean_upload_or_400
 from apps.opportunities.models import Opportunity
 
 from . import notifications
@@ -20,8 +20,6 @@ from .models import (
 
 Role = CompanyMembership.Role
 
-MAX_UPLOAD_BYTES = 5 * 1024 * 1024
-ALLOWED_UPLOAD_SUFFIXES = {".pdf", ".doc", ".docx", ".odt", ".txt", ".png", ".jpg", ".jpeg"}
 YES_NO = {"yes", "no"}
 
 # Application questions about protected characteristics are unlawful to ask
@@ -354,12 +352,9 @@ def _clean_answer(req: ApplicationRequirement, raw, upload):
     if kind == ApplicationRequirement.Kind.FILE:
         if not upload:
             return None
-        suffix = Path(upload.name).suffix.lower()
-        if suffix not in ALLOWED_UPLOAD_SUFFIXES:
-            raise ValidationError({f"answer_{req.pk}": f"Upload a {', '.join(sorted(ALLOWED_UPLOAD_SUFFIXES))} file."})
-        if upload.size > MAX_UPLOAD_BYTES:
-            raise ValidationError({f"answer_{req.pk}": "Files must be 5 MB or smaller."})
-        return upload
+        # Real type from the bytes, PDF/JPG/PNG only, scripts refused,
+        # images re-encoded, virus-scanned (apps/documents/uploads.py).
+        return clean_upload_or_400(upload, f"answer_{req.pk}")
 
     value = (raw or "").strip()
     if not value:
@@ -416,8 +411,8 @@ def submit_application(user, opportunity: Opportunity, data, files) -> Applicati
     for req, cleaned in answers:
         answer = ApplicationAnswer(application=application, requirement=req, label=req.label, kind=req.kind)
         if req.kind == ApplicationRequirement.Kind.FILE:
-            answer.original_filename = Path(cleaned.name).name[:255]
-            answer.file.save(cleaned.name, cleaned, save=False)
+            answer.original_filename = cleaned.original_name
+            answer.file.save(cleaned.file.name, cleaned.file, save=False)
         else:
             answer.value = cleaned
         answer.save()

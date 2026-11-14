@@ -204,13 +204,3 @@ class TestRetention:
         Opportunity.objects.filter(pk=live_job.pk).update(application_deadline=timezone.now() - timedelta(days=31))
         call_command("prune_applications")
         assert Application.objects.count() == 0
-
-
-@pytest.mark.parametrize("storages_same, debug, expected", [(True, False, 1), (False, False, 0), (True, True, 0)])
-def test_deploy_check_warns_when_cvs_share_public_storage(settings, storages_same, debug, expected):
-    from apps.companies.checks import application_files_are_private
-    public = {"BACKEND": "x"}
-    settings.DEBUG = debug
-    settings.STORAGES = {**settings.STORAGES, "default": public,
-                         "applications": public if storages_same else {"BACKEND": "y"}}
-    assert len(application_files_are_private(None)) == expected

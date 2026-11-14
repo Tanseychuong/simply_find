@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "apps.ingestion",
     "apps.analytics",
     "apps.companies",
+    "apps.documents",
 ]
 
 MIDDLEWARE = [
@@ -338,12 +339,11 @@ elif not DEBUG:
 else:
     _media_storage = {"BACKEND": "django.core.files.storage.FileSystemStorage"}
 
-# Application files (CVs, transcripts...) are personal data: they go to a
-# separate PRIVATE bucket, never the public one, and are only ever streamed
-# through the signed-in download endpoint. Create a private bucket in
-# Supabase and set SUPABASE_PRIVATE_BUCKET. Until then they fall back to the
-# default storage under unguessable names, and `manage.py check --deploy`
-# warns (apps/companies/checks.py).
+# Student documents and application files (CVs, transcripts...) are
+# personal data: they go to a separate PRIVATE bucket, never the public
+# one, and are only ever streamed through signed-in download endpoints.
+# Production refuses to start without one. Local development keeps them on
+# disk.
 SUPABASE_PRIVATE_BUCKET = os.environ.get("SUPABASE_PRIVATE_BUCKET", "")
 if SUPABASE_URL and SUPABASE_PRIVATE_BUCKET and "OPTIONS" in _media_storage:
     _private_options = {k: v for k, v in _media_storage["OPTIONS"].items() if k != "custom_domain"}
@@ -352,6 +352,8 @@ if SUPABASE_URL and SUPABASE_PRIVATE_BUCKET and "OPTIONS" in _media_storage:
         "OPTIONS": {**_private_options, "bucket_name": SUPABASE_PRIVATE_BUCKET, "querystring_auth": True,
                     "querystring_expire": 300},
     }
+elif not DEBUG:
+    raise RuntimeError("Set SUPABASE_PRIVATE_BUCKET: students' documents must never go to the public bucket")
 else:
     _application_storage = _media_storage
 
@@ -368,3 +370,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", 5))
+
+# Virus scanning of every upload (apps/documents/uploads.py) through a
+# ClamAV daemon. Required in production: with no reachable scanner,
+# uploads are refused rather than stored unscanned. Set
+# VIRUS_SCAN_REQUIRED=False only knowingly (e.g. a demo without ClamAV).
+CLAMAV_HOST = os.environ.get("CLAMAV_HOST", "")
+CLAMAV_PORT = int(os.environ.get("CLAMAV_PORT", 3310))
+CLAMAV_TIMEOUT = int(os.environ.get("CLAMAV_TIMEOUT", 15))
+VIRUS_SCAN_REQUIRED = os.environ.get("VIRUS_SCAN_REQUIRED", str(not DEBUG)) == "True"

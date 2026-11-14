@@ -22,6 +22,13 @@ def _reset_throttles():
 
 
 @pytest.fixture(autouse=True)
+def _no_virus_scanner(settings):
+    # No ClamAV in tests; the scanner tests (test_uploads.py) fake one.
+    settings.CLAMAV_HOST = ""
+    settings.VIRUS_SCAN_REQUIRED = False
+
+
+@pytest.fixture(autouse=True)
 def _fast_password_hashing(settings):
     # Real hashers are deliberately slow (~1s per user on this machine);
     # tests create many users. Django's docs recommend this for test runs.

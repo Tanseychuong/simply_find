@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -67,10 +66,14 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         return value.strip()
 
     def validate_profile_picture(self, value):
-        # Every upload lands in paid cloud storage — keep them reasonable.
-        if value and value.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
-            raise serializers.ValidationError(f"Image must be {settings.MAX_UPLOAD_MB} MB or smaller.")
-        return value
+        # Re-encoded (no EXIF location data, at most 800px) and virus-scanned.
+        if not value:
+            return value
+        from apps.documents.uploads import IMAGE_TYPES, UploadRejected, clean_upload
+        try:
+            return clean_upload(value, allowed=IMAGE_TYPES, max_image_side=800).file
+        except UploadRejected as exc:
+            raise serializers.ValidationError(exc.message)
 
 
 class RegisterSerializer(serializers.ModelSerializer):
