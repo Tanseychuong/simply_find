@@ -11,6 +11,13 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Local development reads backend/.env (README: cp .env.example .env).
+# Real environment variables win, so Render and CI are unaffected; with no
+# .env file (production, CI) this does nothing.
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(BASE_DIR / ".env", override=False)
+
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 if not DEBUG and SECRET_KEY in ("", "dev-secret-change-me", "change-me"):
