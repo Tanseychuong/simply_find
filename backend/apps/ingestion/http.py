@@ -115,3 +115,45 @@ def fetch_public_html(url: str, session: requests.Session | None = None) -> tupl
             response.close()
 
     raise requests.RequestException(f"Too many redirects for {url}")
+
+
+MAX_JSON_BYTES = 200_000
+
+
+def fetch_public_json(url: str, session: requests.Session | None = None) -> tuple[dict, str]:
+    """GET a public JSON document (an Open Badge, say) with the same SSRF
+    guard as fetch_public_html. Returns (data, final_url)."""
+    import json
+
+    session = session or requests.Session()
+    current = url
+    for _ in range(MAX_REDIRECTS + 1):
+        assert_public_url(current)
+        response = session.get(
+            current, headers=default_headers("application/ld+json, application/json"),
+            timeout=TIMEOUT, allow_redirects=False, stream=True,
+        )
+        try:
+            if response.is_redirect or response.status_code in (301, 302, 303, 307, 308):
+                location = response.headers.get("Location")
+                if not location:
+                    raise requests.RequestException("Redirect without a Location header")
+                current = urljoin(current, location)
+                continue
+            response.raise_for_status()
+            body = b""
+            for chunk in response.iter_content(chunk_size=65536):
+                body += chunk
+                if len(body) > MAX_JSON_BYTES:
+                    raise NotFetchableError("The document is too large")
+            try:
+                data = json.loads(body.decode("utf-8", errors="replace"))
+            except ValueError as exc:
+                raise NotFetchableError("Not a JSON document") from exc
+            if not isinstance(data, dict):
+                raise NotFetchableError("Not a JSON object")
+            return data, current
+        finally:
+            response.close()
+
+    raise requests.RequestException(f"Too many redirects for {url}")

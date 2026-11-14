@@ -6,13 +6,17 @@ path (including the emails each action sends).
 
 import re
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.accounts.verification import require_verified_email
+from apps.documents.models import Document
+from apps.documents.services import copy_for_application
 from apps.documents.uploads import clean_upload_or_400
 from apps.opportunities.models import Opportunity
+from apps.profiles.eligibility import reasons_not_eligible
 
 from . import notifications
 from .models import (
@@ -350,10 +354,24 @@ def update_job(job: Opportunity, company: Company, data, requirements=None) -> O
 
 # --- Applications ------------------------------------------------------------
 
-def _clean_answer(req: ApplicationRequirement, raw, upload):
+def _vault_document(user, raw, field):
+    """`vault:<id>` picks a document already in the applicant's vault."""
+    try:
+        pk = int(str(raw).split(":", 1)[1])
+    except (IndexError, ValueError):
+        raise ValidationError({field: "Pick one of your documents."})
+    document = Document.objects.filter(owner=user, pk=pk).first()
+    if document is None:
+        raise ValidationError({field: "Pick one of your documents."})
+    return document
+
+
+def _clean_answer(req: ApplicationRequirement, raw, upload, user=None):
     kind = req.kind
     if kind == ApplicationRequirement.Kind.FILE:
         if not upload:
+            if user is not None and str(raw or "").startswith("vault:"):
+                return _vault_document(user, raw, f"answer_{req.pk}")
             return None
         # Real type from the bytes, PDF/JPG/PNG only, scripts refused,
         # images re-encoded, virus-scanned (apps/documents/uploads.py).
@@ -392,13 +410,17 @@ def submit_application(user, opportunity: Opportunity, data, files) -> Applicati
         raise ValidationError({"detail": "You can't apply to your own company's job."})
     if Application.objects.filter(opportunity=opportunity, applicant=user).exists():
         raise ValidationError({"detail": "You've already applied to this job."})
+    if settings.REQUIRE_ELIGIBILITY_TO_APPLY:
+        reasons = reasons_not_eligible(user, opportunity)
+        if reasons:
+            raise ValidationError({"detail": reasons[0], "eligibility": reasons})
     if not _truthy(data.get("consent")):
         raise ValidationError({"consent": "Please agree to share your application with the company."})
 
     answers, missing = [], {}
     for req in opportunity.requirements.all():
         key = f"answer_{req.pk}"
-        cleaned = _clean_answer(req, data.get(key), files.get(key))
+        cleaned = _clean_answer(req, data.get(key), files.get(key), user)
         if cleaned is None:
             if req.required:
                 missing[key] = "This is required."
@@ -414,7 +436,10 @@ def submit_application(user, opportunity: Opportunity, data, files) -> Applicati
         raise ValidationError({"detail": "You've already applied to this job."})
     for req, cleaned in answers:
         answer = ApplicationAnswer(application=application, requirement=req, label=req.label, kind=req.kind)
-        if req.kind == ApplicationRequirement.Kind.FILE:
+        if isinstance(cleaned, Document):
+            content, answer.original_filename = copy_for_application(cleaned)
+            answer.file.save(content.name, content, save=False)
+        elif req.kind == ApplicationRequirement.Kind.FILE:
             answer.original_filename = cleaned.original_name
             answer.file.save(cleaned.file.name, cleaned.file, save=False)
         else:

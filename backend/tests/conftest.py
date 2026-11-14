@@ -35,6 +35,8 @@ def _auth_gates_off(settings):
     # (test_auth_hardening.py), which switch these back on.
     settings.REQUIRE_VERIFIED_EMAIL = False
     settings.REQUIRE_MFA_FOR_STAFF_AND_COMPANIES = False
+    # Older tests apply without a profile; test_profiles.py turns this on.
+    settings.REQUIRE_ELIGIBILITY_TO_APPLY = False
 
 
 @pytest.fixture(autouse=True)

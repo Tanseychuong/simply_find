@@ -7,4 +7,4 @@ class DocumentsConfig(AppConfig):
     verbose_name = "Student documents"
 
     def ready(self):
-        from . import checks  # noqa: F401  (registers the deploy checks)
+        from . import checks, signals  # noqa: F401  (registers deploy checks and signal handlers)

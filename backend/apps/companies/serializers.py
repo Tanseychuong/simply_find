@@ -212,13 +212,27 @@ def applicant_for_company(application) -> dict:
     hidden until the team shortlists the applicant, so companies judge the
     application first, and nobody harvests a list of student emails by
     posting a role."""
+    from apps.profiles.models import StudentProfile
+    from apps.profiles.serializers import ApplicantProfileSerializer, CredentialSerializer
+
     visible = application.status in CONTACT_VISIBLE_STATUSES
     user = application.applicant
+    try:
+        profile = user.student_profile
+    except StudentProfile.DoesNotExist:
+        profile = None
     return {
         "id": user.pk,
         "name": user.name,
         "email": user.email if visible else None,
+        "phone": (profile.phone or None) if visible and profile else None,
         "contact_visible": visible,
+        # Studies, skills and certificates; never date of birth.
+        "profile": ApplicantProfileSerializer(profile).data if profile else None,
+        "credentials": [
+            {k: c[k] for k in ("provider", "title", "issuer", "url", "issued_on", "check_status")}
+            for c in CredentialSerializer(user.credentials.all(), many=True).data
+        ],
     }
 
 

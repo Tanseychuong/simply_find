@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "apps.analytics",
     "apps.companies",
     "apps.documents",
+    "apps.profiles",
 ]
 
 MIDDLEWARE = [
@@ -199,6 +200,9 @@ CSRF_COOKIE_DOMAIN = AUTH_COOKIE_DOMAIN or None
 # only switched off by tests; there is deliberately no environment variable.
 REQUIRE_VERIFIED_EMAIL = True
 REQUIRE_MFA_FOR_STAFF_AND_COMPANIES = True
+# Applying needs the first two profile steps and passes the student and
+# recent-graduate rules (apps/profiles/eligibility.py).
+REQUIRE_ELIGIBILITY_TO_APPLY = True
 
 # "Sign in with Google": the OAuth client ID from Google Cloud Console
 # (APIs & Services -> Credentials -> Web application). The frontend uses the

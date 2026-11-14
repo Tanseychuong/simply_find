@@ -30,7 +30,7 @@ owners change roles. A company always keeps at least one owner.
 from pathlib import Path
 
 from django.db.models import Count, Q
-from django.http import FileResponse, Http404
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -38,6 +38,8 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from apps.documents.services import log_access, stream
 
 from apps.accounts.mfa import require_mfa
 from apps.accounts.verification import require_verified_email
@@ -464,11 +466,13 @@ class AnswerFileView(APIView):
         )
         if not answer.file:
             raise Http404
-        if answer.application.applicant_id != request.user.pk:
+        application = answer.application
+        if application.applicant_id != request.user.pk:
             require_mfa(request)  # the hiring team: applicants' documents need two-step sign-in
-        response = FileResponse(
-            answer.file.open("rb"), as_attachment=True, filename=answer.original_filename or "attachment",
-        )
-        response["Cache-Control"] = "private, no-store"
-        response["X-Content-Type-Options"] = "nosniff"
-        return response
+            # The applicant can see who opened their files (GET /api/profile/access-log/).
+            log_access(
+                request, owner=application.applicant, answer=answer,
+                company=application.opportunity.company,
+                label=f"{answer.label}: {application.opportunity.title}",
+            )
+        return stream(answer.file, answer.original_filename)

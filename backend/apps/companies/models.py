@@ -20,18 +20,14 @@ ApplicationRequirements and applicants answer them in an Application.
 
 import hashlib
 import secrets
-import uuid
 from datetime import timedelta
-from pathlib import Path
 
 from django.conf import settings
-from django.core.files.storage import storages
-from django.core.signals import setting_changed
 from django.db import models
-from django.dispatch import receiver
-from django.utils.functional import LazyObject, empty
 from django.utils import timezone
 from django.utils.text import slugify
+
+from apps.documents.storage import private_files_storage, unguessable_name
 
 
 # Path segments the API and frontend use under /companies/.
@@ -287,33 +283,15 @@ class ApplicationRequirement(models.Model):
         return self.label
 
 
-class _ApplicationStorage(LazyObject):
-    """Resolved on first use, not at import: Django evaluates a field's
-    storage callable once when models load, which would pin whatever
-    STORAGES said at that moment (and ignore test or runtime overrides)."""
-
-    def _setup(self):
-        self._wrapped = storages["applications"]
-
-
-application_files_storage = _ApplicationStorage()
-
-
-@receiver(setting_changed)
-def _reset_application_storage(*, setting, **kwargs):
-    if setting == "STORAGES":
-        application_files_storage._wrapped = empty
-
-
 def application_storage():
-    """Private storage for CVs and other application files (settings.STORAGES['applications'])."""
-    return application_files_storage
+    """Private storage for CVs and other application files (apps/documents/storage.py)."""
+    return private_files_storage
 
 
 def application_file_path(instance, filename):
-    # Unguessable key: the media bucket is public, so the name is the lock.
-    # Files are only ever handed out through the authenticated download view.
-    return f"applications/{uuid.uuid4().hex}{Path(filename).suffix.lower()[:10]}"
+    # Unguessable key; files are only ever handed out through the
+    # authenticated download view.
+    return unguessable_name("applications", filename)
 
 
 class Application(models.Model):
