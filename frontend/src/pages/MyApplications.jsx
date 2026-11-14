@@ -16,7 +16,10 @@ const NEXT = {
   rejected: "The team chose other applicants this time.",
   withdrawn: "You withdrew this application. Its answers and files were deleted.",
 };
+// Can no longer be withdrawn.
 const FINAL = new Set(["hired", "rejected", "withdrawn"]);
+// Shown under "Closed". A hire stays under "Active": it's the news the student is looking for.
+const CLOSED = new Set(["rejected", "withdrawn"]);
 
 function Answer({ a }) {
   if (a.kind === "file") {
@@ -100,8 +103,8 @@ export default function MyApplications() {
   const { data, loading, error, setData } = useApi((signal) => applicationsApi.mine({ signal }), []);
   const [filter, setFilter] = useState("active");
   const apps = data || [];
-  const shown = apps.filter((a) => (filter === "active" ? !FINAL.has(a.status) : FINAL.has(a.status)));
-  const activeCount = apps.filter((a) => !FINAL.has(a.status)).length;
+  const shown = apps.filter((a) => (filter === "active" ? !CLOSED.has(a.status) : CLOSED.has(a.status)));
+  const activeCount = apps.filter((a) => !CLOSED.has(a.status)).length;
 
   return (
     <Container className="py-8">

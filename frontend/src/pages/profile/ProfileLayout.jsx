@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { NavLink, Outlet, useOutletContext } from "react-router-dom";
 import { CheckCircle2, Circle } from "lucide-react";
 import { profileApi } from "../../api/profile";
@@ -66,7 +67,9 @@ export default function ProfileLayout() {
           <NavLink to="/profile/access" className={tab}>Who opened my files</NavLink>
         </nav>
         <div className="min-w-0">
-          <Outlet context={{ profile, setProfile, reloadProfile: reload }} />
+          <Suspense fallback={<Spinner />}>
+            <Outlet context={{ profile, setProfile, reloadProfile: reload }} />
+          </Suspense>
         </div>
       </div>
     </Container>

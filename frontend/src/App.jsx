@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import { Outlet, createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -9,21 +10,36 @@ import Home from "./pages/Home";
 import Opportunities from "./pages/Opportunities";
 import OpportunityDetail from "./pages/OpportunityDetail";
 import CompanyPublic from "./pages/CompanyPublic";
-import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import ResetPassword from "./pages/auth/ResetPassword";
-import VerifyEmail from "./pages/auth/VerifyEmail";
-import Claim from "./pages/auth/Claim";
-import AccountSecurity from "./pages/account/AccountSecurity";
-import ProfileLayout from "./pages/profile/ProfileLayout";
-import ProfileOverview from "./pages/profile/ProfileOverview";
-import { AboutStep, SkillsStep, StudiesStep } from "./pages/profile/ProfileSteps";
-import DocumentsStep from "./pages/profile/DocumentsStep";
-import AccessLog from "./pages/profile/AccessLog";
-import Apply from "./pages/Apply";
-import MyApplications from "./pages/MyApplications";
-import Saved from "./pages/Saved";
+
+// Loaded when first opened: most visitors only browse roles.
+const Login = lazy(() => import("./pages/auth/Login"));
+const Register = lazy(() => import("./pages/auth/Register"));
+const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
+const VerifyEmail = lazy(() => import("./pages/auth/VerifyEmail"));
+const Claim = lazy(() => import("./pages/auth/Claim"));
+const AccountSecurity = lazy(() => import("./pages/account/AccountSecurity"));
+const ProfileLayout = lazy(() => import("./pages/profile/ProfileLayout"));
+const ProfileOverview = lazy(() => import("./pages/profile/ProfileOverview"));
+const AboutStep = lazy(() => import("./pages/profile/ProfileSteps").then((m) => ({ default: m.AboutStep })));
+const SkillsStep = lazy(() => import("./pages/profile/ProfileSteps").then((m) => ({ default: m.SkillsStep })));
+const StudiesStep = lazy(() => import("./pages/profile/ProfileSteps").then((m) => ({ default: m.StudiesStep })));
+const DocumentsStep = lazy(() => import("./pages/profile/DocumentsStep"));
+const AccessLog = lazy(() => import("./pages/profile/AccessLog"));
+const Apply = lazy(() => import("./pages/Apply"));
+const MyApplications = lazy(() => import("./pages/MyApplications"));
+const Saved = lazy(() => import("./pages/Saved"));
+const PublicDrive = lazy(() => import("./pages/PublicDrive"));
+const JoinCompany = lazy(() => import("./pages/company/JoinCompany"));
+const InviteAccept = lazy(() => import("./pages/company/InviteAccept"));
+const CompanyLayout = lazy(() => import("./pages/company/CompanyLayout"));
+const CompanyJobs = lazy(() => import("./pages/company/CompanyJobs"));
+const JobForm = lazy(() => import("./pages/company/JobForm"));
+const Applicants = lazy(() => import("./pages/company/Applicants"));
+const Team = lazy(() => import("./pages/company/Team"));
+const CompanyProfile = lazy(() => import("./pages/company/CompanyProfile"));
+const Drives = lazy(() => import("./pages/company/Drives"));
+const DriveDetail = lazy(() => import("./pages/company/DriveDetail"));
 
 /*
   Route map. Paths marked (fixed) are linked from the backend (emails,
@@ -55,10 +71,10 @@ const router = createBrowserRouter([
           { path: "/", element: <Home /> },
           { path: "/opportunities", element: <Opportunities /> },
           { path: "/opportunities/:id", element: <OpportunityDetail /> },
-          { path: "/companies/join", element: page("Hire on SimplyFind") },
-          { path: "/companies/invite/:token", element: page("Join your team") },
+          { path: "/companies/join", element: <JoinCompany /> },
+          { path: "/companies/invite/:token", element: <InviteAccept /> },
           { path: "/companies/:slug", element: <CompanyPublic /> },
-          { path: "/d/:code", element: page("Recruitment drive") },
+          { path: "/d/:code", element: <PublicDrive /> },
           { path: "/privacy", element: page("Privacy") },
 
           // Links from emails: work signed in or out
@@ -98,7 +114,22 @@ const router = createBrowserRouter([
               { path: "/account/security", element: <AccountSecurity /> },
               {
                 element: <RequireCompany />,
-                children: [{ path: "/company/*", element: page("Company dashboard") }],
+                children: [
+                  {
+                    path: "/company",
+                    element: <CompanyLayout />,
+                    children: [
+                      { index: true, element: <CompanyJobs /> },
+                      { path: "jobs/new", element: <JobForm /> },
+                      { path: "jobs/:id/edit", element: <JobForm /> },
+                      { path: "jobs/:id/applicants", element: <Applicants /> },
+                      { path: "drives", element: <Drives /> },
+                      { path: "drives/:id", element: <DriveDetail /> },
+                      { path: "team", element: <Team /> },
+                      { path: "profile", element: <CompanyProfile /> },
+                    ],
+                  },
+                ],
               },
             ],
           },

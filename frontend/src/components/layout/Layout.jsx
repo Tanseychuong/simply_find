@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import EmailNotice from "./EmailNotice";
 import Footer from "./Footer";
 import Header from "./Header";
+import { Spinner } from "../ui";
 
 export default function Layout() {
   const { pathname } = useLocation();
@@ -18,7 +19,9 @@ export default function Layout() {
       <Header />
       <EmailNotice />
       <main id="main" className="flex-1">
-        <Outlet />
+        <Suspense fallback={<Spinner />}>
+          <Outlet />
+        </Suspense>
       </main>
       <Footer />
     </div>
