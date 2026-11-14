@@ -1,6 +1,6 @@
 import { Link, useLocation, useParams } from "react-router-dom";
 import {
-  ArrowLeft, BadgeCheck, Briefcase, CalendarClock, CheckCircle2, Clock, ExternalLink, GraduationCap,
+  ArrowLeft, BadgeCheck, Briefcase, CalendarClock, CheckCircle2, Clock, ExternalLink, GraduationCap, Hourglass,
   MapPin, Monitor, Wallet,
 } from "lucide-react";
 import { opportunitiesApi } from "../api/opportunities";
@@ -15,6 +15,7 @@ import {
   ROLE_TYPES, WORK_MODES, deadlineInfo, experienceLabel, formatDate, graduationRange, organisationOf, timeAgo,
 } from "../lib/format";
 import { useApi, useTitle } from "../lib/hooks";
+import { EMPLOYMENT_TYPES } from "../lib/filters";
 import { hostOf, safeExternalUrl } from "../lib/urls";
 import NotFound from "./NotFound";
 
@@ -96,6 +97,7 @@ function Facts({ opp }) {
       </Fact>
       <Fact icon={MapPin} label="Location">{opp.location}</Fact>
       <Fact icon={Monitor} label="Work mode">{WORK_MODES[opp.work_mode]}</Fact>
+      <Fact icon={Hourglass} label="Hours">{EMPLOYMENT_TYPES[opp.employment_type]}</Fact>
       <Fact icon={Wallet} label="Pay">{paid}</Fact>
       <Fact icon={GraduationCap} label="Who can apply">
         {[graduationRange(opp.graduation_year_min, opp.graduation_year_max), experienceLabel(opp.experience_years_max), opp.accepts_minors ? "Open to under-18s" : null]

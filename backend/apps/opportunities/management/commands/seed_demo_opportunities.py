@@ -72,6 +72,27 @@ DEMO_OPPORTUNITIES = [
      "Listed under Graduate school, not in the job feed."),
 ]
 
+# What each description says about the role, as structured fields, so the
+# website's filters (pay, work mode, full/part-time, duration, career level)
+# have something to match in a demo.
+ROLE_DETAILS = {
+    "Software Engineering Intern (Summer 2027)": dict(is_paid=True, work_mode="hybrid", employment_type="full_time",
+                                                      duration_months=3),
+    "Programme Support Intern": dict(work_mode="on_site", employment_type="full_time", duration_months=6,
+                                     graduation_year_min=2025, graduation_year_max=2027),
+    "Graduate Trainee Programme 2027": dict(is_paid=True, work_mode="on_site", employment_type="full_time"),
+    "Graduate Data Analyst": dict(is_paid=True, work_mode="on_site", employment_type="full_time",
+                                  experience_years_max=1),
+    "Product Design Internship": dict(work_mode="remote", employment_type="part_time", duration_months=6),
+    "Junior Operations Associate": dict(is_paid=True, work_mode="on_site", employment_type="full_time",
+                                        experience_years_max=2),
+    "Public Health Research Intern": dict(work_mode="hybrid", duration_months=3),
+    "Agribusiness Graduate Fellowship Year": dict(is_paid=True, work_mode="on_site", employment_type="full_time"),
+    "Assistant Teacher, Mathematics": dict(is_paid=True, work_mode="on_site", employment_type="full_time"),
+    "Legal Research Intern": dict(is_paid=False, work_mode="on_site", employment_type="part_time",
+                                  duration_months=4, accepts_minors=False),
+}
+
 
 def _demo_q() -> Q:
     q = Q(pk__in=[])
@@ -126,6 +147,7 @@ class Command(BaseCommand):
                     # No URL to visit, so the enrichment worker has nothing to do.
                     enrichment_status=Opportunity.EnrichmentStatus.SKIPPED,
                     enrichment_checked_at=now,
+                    **ROLE_DETAILS.get(title, {}),
                 )
                 # auto_now_add ignores values passed to create().
                 Opportunity.objects.filter(pk=opportunity.pk).update(submitted_at=published - timedelta(hours=6))

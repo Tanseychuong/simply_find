@@ -9,7 +9,7 @@ from .sections import KINDS, clean_sections, text_to_blocks
 
 ROLE_FIELDS = [
     "role_type", "experience_years_max", "graduation_year_min", "graduation_year_max",
-    "is_paid", "work_mode", "duration_months", "accepts_minors",
+    "is_paid", "work_mode", "employment_type", "duration_months", "accepts_minors",
 ]
 
 

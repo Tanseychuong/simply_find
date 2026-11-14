@@ -16,7 +16,7 @@ from django.utils import timezone
 from apps.opportunities.models import Opportunity, OpportunityCategory
 from apps.opportunities.sections import as_text
 
-from .classify import classify_role, find_deadline, guess_field
+from .classify import classify_role, employment_type, find_deadline, guess_field
 from .connectors import get_connector_class
 from .models import FetchLog
 
@@ -102,6 +102,9 @@ def fetch_source(source) -> FetchLog:
                         category=guess_field(item, source.category, categories),
                         role_type=role.role_type,
                         experience_years_max=role.experience_years,
+                        employment_type=employment_type(
+                            f"{title} {item.get('location') or ''} {description} {as_text(item.get('sections'))}"
+                        ),
                         source_type=Opportunity.SourceType.FETCHED,
                         status=Opportunity.Status.PENDING,  # fetched never means approved
                         fetch_source=source,

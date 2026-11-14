@@ -1,20 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, SearchX, SlidersHorizontal, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { opportunitiesApi } from "../api/opportunities";
+import { errorMessage } from "../api/client";
+import FilterPanel, { FilterChips } from "../components/opportunities/FilterPanel";
 import OpportunityCard, { CardSkeleton } from "../components/opportunities/OpportunityCard";
 import { Alert, Button, Container, EmptyState, Input, Select, cx } from "../components/ui";
-import { ROLE_TYPES, WORK_MODES } from "../lib/format";
+import { FILTER_KEYS, activeChips } from "../lib/filters";
 import { useApi, useDebounced, useTitle } from "../lib/hooks";
-import { errorMessage } from "../api/client";
 
 /*
-  Every filter lives in the URL (?role_type=internship,entry_level&paid=true),
-  so results can be shared and the back button works. The keys are the API's
-  own filter names and are passed straight through.
+  Every filter lives in the URL (?role_type=internship&deadline=week), so
+  results can be shared and Back undoes the last change. The keys are the
+  API's own filter names (lib/filters.js) and are passed straight through.
 */
 const PAGE_SIZE = 18;
-const FILTER_KEYS = ["search", "category", "role_type", "work_mode", "paid", "graduation_year", "ordering"];
 const ORDERINGS = { "": "Newest first", application_deadline: "Closing soonest" };
 
 function useListParams() {
@@ -38,87 +38,6 @@ function useListParams() {
   return { params, get, list, update };
 }
 
-function CheckGroup({ legend, options, selected, onChange }) {
-  return (
-    <fieldset>
-      <legend className="mb-2 text-sm font-semibold">{legend}</legend>
-      <div className="space-y-1.5">
-        {Object.entries(options).map(([value, label]) => {
-          const checked = selected.includes(value);
-          return (
-            <label key={value} className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="size-4 rounded border-border accent-brand"
-                checked={checked}
-                onChange={() => onChange(checked ? selected.filter((v) => v !== value) : [...selected, value])}
-              />
-              {label}
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
-
-function Filters({ p, categories }) {
-  const [year, setYear] = useState(p.get("graduation_year"));
-  const urlYear = p.get("graduation_year");
-  useEffect(() => {
-    setYear(urlYear);
-  }, [urlYear]);
-
-  return (
-    <div className="space-y-6">
-      <CheckGroup legend="Type of role" options={ROLE_TYPES} selected={p.list("role_type")} onChange={(v) => p.update({ role_type: v })} />
-      <CheckGroup legend="Where you work" options={WORK_MODES} selected={p.list("work_mode")} onChange={(v) => p.update({ work_mode: v })} />
-      <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-        <input
-          type="checkbox"
-          className="size-4 rounded border-border accent-brand"
-          checked={p.get("paid") === "true"}
-          onChange={(e) => p.update({ paid: e.target.checked ? "true" : "" })}
-        />
-        Paid roles only
-      </label>
-      <div className="space-y-2">
-        <label htmlFor="f-category" className="text-sm font-semibold">Field</label>
-        <Select id="f-category" value={p.get("category")} onChange={(e) => p.update({ category: e.target.value })}>
-          <option value="">All fields</option>
-          {(categories || []).map((c) => (
-            <option key={c.id} value={c.slug}>
-              {c.name} ({c.live_count})
-            </option>
-          ))}
-        </Select>
-      </div>
-      <form
-        className="space-y-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          p.update({ graduation_year: /^\d{4}$/.test(year) ? year : "" });
-        }}
-      >
-        <label htmlFor="f-year" className="text-sm font-semibold">My graduation year</label>
-        <div className="flex gap-2">
-          <Input
-            id="f-year"
-            inputMode="numeric"
-            maxLength={4}
-            placeholder="e.g. 2026"
-            value={year}
-            onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
-            onBlur={() => year !== urlYear && p.update({ graduation_year: /^\d{4}$/.test(year) ? year : "" })}
-          />
-          <Button type="submit" variant="secondary">Apply</Button>
-        </div>
-        <p className="text-xs text-muted">Shows roles open to graduates of that year.</p>
-      </form>
-    </div>
-  );
-}
-
 function Pagination({ page, count, onPage }) {
   const pages = Math.max(1, Math.ceil(count / PAGE_SIZE));
   if (pages <= 1) return null;
@@ -127,9 +46,7 @@ function Pagination({ page, count, onPage }) {
       <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
         <ChevronLeft className="size-4" /> Previous
       </Button>
-      <span className="text-sm text-muted">
-        Page {page} of {pages}
-      </span>
+      <span className="text-sm text-muted">Page {page} of {pages}</span>
       <Button variant="secondary" size="sm" disabled={page >= pages} onClick={() => onPage(page + 1)}>
         Next <ChevronRight className="size-4" />
       </Button>
@@ -137,9 +54,41 @@ function Pagination({ page, count, onPage }) {
   );
 }
 
+/** Full-screen filter sheet on phones and tablets. */
+function FilterDrawer({ open, onClose, count, children }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const esc = (e) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", esc);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", esc);
+      document.body.style.overflow = "";
+    };
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-40 flex flex-col bg-surface lg:hidden" role="dialog" aria-modal="true" aria-label="Filters">
+      <div className="flex h-14 items-center justify-between border-b border-border px-4">
+        <h2 className="font-semibold">Filters</h2>
+        <button type="button" onClick={onClose} className="rounded-lg p-2 text-muted hover:bg-surface-2" aria-label="Close filters">
+          <X className="size-5" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
+      <div className="border-t border-border p-4">
+        <Button className="w-full" size="lg" onClick={onClose}>
+          {count === undefined ? "Show roles" : `Show ${count} role${count === 1 ? "" : "s"}`}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function Opportunities() {
   const p = useListParams();
-  const [showFilters, setShowFilters] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const [searchText, setSearchText] = useState(p.get("search"));
   const debouncedSearch = useDebounced(searchText);
   const urlSearch = p.get("search");
@@ -154,7 +103,7 @@ export default function Opportunities() {
   }, [urlSearch]);
 
   const page = Math.max(1, parseInt(p.get("page"), 10) || 1);
-  const query = Object.fromEntries(FILTER_KEYS.map((k) => [k, p.get(k)]));
+  const query = Object.fromEntries(["search", "ordering", ...FILTER_KEYS].map((k) => [k, p.get(k)]));
   const queryKey = JSON.stringify(query) + page;
 
   const { data, loading, error } = useApi(
@@ -162,21 +111,30 @@ export default function Opportunities() {
     [queryKey],
   );
   const { data: categories } = useApi((signal) => opportunitiesApi.categories({ signal }), []);
+  const { data: locations } = useApi((signal) => opportunitiesApi.locations({ signal }), []);
 
-  const category = categories?.find((c) => c.slug === p.get("category"));
-  useTitle(category ? `${category.name} roles` : "Find roles");
+  const onlyCategory = p.list("category").length === 1 ? categories?.find((c) => c.slug === p.get("category")) : null;
+  const heading = onlyCategory ? `${onlyCategory.name} roles` : "Find roles";
+  useTitle(heading);
 
-  const activeCount = ["category", "role_type", "work_mode", "paid", "graduation_year"].filter((k) => p.get(k)).length;
+  const chips = activeChips(p.params, { categories: categories || [] });
+  const removeChip = (chip) => {
+    const f = chip.key;
+    const values = p.list(f).filter((v) => v !== chip.value);
+    p.update({ [f]: values.length && chip.value !== p.get(f) ? values : "" });
+  };
+  const clearAll = () => p.update(Object.fromEntries(FILTER_KEYS.map((k) => [k, ""])));
   const results = data?.results || [];
+  const panel = <FilterPanel p={p} categories={categories} locations={locations} />;
 
   return (
     <Container className="py-8">
       <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">{category ? `${category.name} roles` : "Find roles"}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{heading}</h1>
         <p className="mt-1 text-muted">Internships, graduate programmes and entry-level jobs. Every listing is checked before it goes live.</p>
       </header>
 
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1" role="search">
           <label htmlFor="search" className="sr-only">Search roles</label>
           <Search className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted" aria-hidden />
@@ -187,29 +145,23 @@ export default function Opportunities() {
           <Select id="ordering" className="h-11 sm:w-48" value={p.get("ordering")} onChange={(e) => p.update({ ordering: e.target.value })}>
             {Object.entries(ORDERINGS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Select>
-          <Button variant="secondary" className="h-11 lg:hidden" onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters}>
-            <SlidersHorizontal className="size-4" /> Filters{activeCount ? ` (${activeCount})` : ""}
+          <Button variant="secondary" className="h-11 shrink-0 lg:hidden" onClick={() => setDrawerOpen(true)}>
+            <SlidersHorizontal className="size-4" /> Filters{chips.length ? ` (${chips.length})` : ""}
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
-        <aside className={cx("lg:block", showFilters ? "block" : "hidden")} aria-label="Filters">
-          <div className="rounded-xl border border-border bg-surface p-4 lg:sticky lg:top-24 lg:border-0 lg:bg-transparent lg:p-0">
-            <Filters p={p} categories={categories} />
-            {activeCount > 0 && (
-              <button
-                type="button"
-                className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline"
-                onClick={() => p.update({ category: "", role_type: "", work_mode: "", paid: "", graduation_year: "" })}
-              >
-                <X className="size-4" /> Clear filters
-              </button>
-            )}
-          </div>
+      <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
+        <aside className="hidden lg:block" aria-label="Filters">
+          {/* Full height, not a sticky inner scroller: with few results that box got cut off. */}
+          {panel}
         </aside>
+        <FilterDrawer open={drawerOpen} onClose={closeDrawer} count={data?.count}>
+          {panel}
+        </FilterDrawer>
 
-        <section aria-live="polite" aria-busy={loading}>
+        <section aria-live="polite" aria-busy={loading} className="min-w-0">
+          <FilterChips chips={chips} onRemove={removeChip} onClear={clearAll} />
           {error ? (
             <Alert tone="danger">{errorMessage(error)}</Alert>
           ) : (
@@ -220,7 +172,11 @@ export default function Opportunities() {
                   {Array.from({ length: 6 }, (_, i) => <CardSkeleton key={i} />)}
                 </div>
               ) : results.length === 0 ? (
-                <EmptyState icon={SearchX} title="No roles match these filters">
+                <EmptyState
+                  icon={SearchX}
+                  title="No roles match these filters"
+                  action={chips.length ? <Button variant="secondary" onClick={clearAll}>Clear all filters</Button> : null}
+                >
                   Try fewer filters or a different search. New roles are added every few hours.
                 </EmptyState>
               ) : (
@@ -228,7 +184,16 @@ export default function Opportunities() {
                   {results.map((o) => <OpportunityCard key={o.id} opp={o} />)}
                 </div>
               )}
-              {data && <Pagination page={page} count={data.count} onPage={(n) => { p.update({ page: String(n) }); window.scrollTo(0, 0); }} />}
+              {data && (
+                <Pagination
+                  page={page}
+                  count={data.count}
+                  onPage={(n) => {
+                    p.update({ page: String(n) });
+                    window.scrollTo(0, 0);
+                  }}
+                />
+              )}
             </>
           )}
         </section>

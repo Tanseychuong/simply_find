@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { BadgeCheck, Clock, MapPin } from "lucide-react";
 import { ROLE_TYPES, WORK_MODES, deadlineInfo, organisationOf } from "../../lib/format";
+import { EMPLOYMENT_TYPES } from "../../lib/filters";
 import { Badge, cx } from "../ui";
 import CoverImage from "./CoverImage";
 import SaveButton from "./SaveButton";
@@ -10,6 +11,7 @@ export function RoleBadges({ opp }) {
     <div className="flex flex-wrap gap-1.5">
       {opp.role_type && <Badge tone="brand">{ROLE_TYPES[opp.role_type] || opp.role_type}</Badge>}
       {opp.work_mode && <Badge>{WORK_MODES[opp.work_mode]}</Badge>}
+      {opp.employment_type && <Badge>{EMPLOYMENT_TYPES[opp.employment_type]}</Badge>}
       {opp.is_paid === true && <Badge tone="success">Paid</Badge>}
       {opp.is_paid === false && <Badge>Unpaid</Badge>}
       {opp.application_method === "in_app" && <Badge tone="accent">Apply on SimplyFind</Badge>}

@@ -44,6 +44,10 @@ class Opportunity(models.Model):
         HYBRID = "hybrid", "Hybrid"
         REMOTE = "remote", "Remote"
 
+    class EmploymentType(models.TextChoices):
+        FULL_TIME = "full_time", "Full-time"
+        PART_TIME = "part_time", "Part-time"
+
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         APPROVED = "approved", "Approved"
@@ -109,6 +113,9 @@ class Opportunity(models.Model):
     graduation_year_max = models.PositiveSmallIntegerField(null=True, blank=True)
     is_paid = models.BooleanField(null=True, blank=True, help_text="Blank = not stated.")
     work_mode = models.CharField(max_length=10, choices=WorkMode.choices, blank=True)
+    employment_type = models.CharField(
+        max_length=10, choices=EmploymentType.choices, blank=True, help_text="Blank = not stated.",
+    )
     duration_months = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Internships only.")
     # Off by default: under-18s can only apply where the company says so.
     accepts_minors = models.BooleanField(default=False)
