@@ -168,7 +168,7 @@ export default function Opportunities() {
             <>
               {data && <p className="mb-4 text-sm text-muted">{data.count} role{data.count === 1 ? "" : "s"}</p>}
               {loading && !data ? (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3">
                   {Array.from({ length: 6 }, (_, i) => <CardSkeleton key={i} />)}
                 </div>
               ) : results.length === 0 ? (
@@ -180,7 +180,7 @@ export default function Opportunities() {
                   Try fewer filters or a different search. New roles are added every few hours.
                 </EmptyState>
               ) : (
-                <div className={cx("grid gap-4 sm:grid-cols-2 xl:grid-cols-3", loading && "opacity-60")}>
+                <div className={cx("grid grid-cols-1 gap-3", loading && "opacity-60")}>
                   {results.map((o) => <OpportunityCard key={o.id} opp={o} />)}
                 </div>
               )}

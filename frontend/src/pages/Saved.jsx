@@ -17,13 +17,13 @@ export default function Saved() {
       {error ? (
         <Alert tone="danger">{errorMessage(error)}</Alert>
       ) : loading && !data ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 3 }, (_, i) => <CardSkeleton key={i} />)}</div>
+        <div className="grid grid-cols-1 gap-3">{Array.from({ length: 3 }, (_, i) => <CardSkeleton key={i} />)}</div>
       ) : items.length === 0 ? (
         <EmptyState icon={Bookmark} title="Nothing saved yet" action={<ButtonLink to="/opportunities">Find roles</ButtonLink>}>
           Tap the bookmark on any role to keep it here for later.
         </EmptyState>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3">
           {items.map((s) => <OpportunityCard key={s.id} opp={s.opportunity} />)}
         </div>
       )}

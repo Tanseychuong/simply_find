@@ -26,23 +26,25 @@
   --c-success-soft: #e7f6ec;
 }
 
+/* Dark mode uses neutral greys; teal appears only as the accent, never in the
+   backgrounds, so the page doesn't take on a green cast. */
 .dark {
-  --c-bg: #0d1412;
-  --c-surface: #141e1b;
-  --c-surface-2: #1b2824;
-  --c-border: #293833;
-  --c-text: #e6eeeb;
-  --c-muted: #9aaba6;
+  --c-bg: #0f1013;
+  --c-surface: #17191d;
+  --c-surface-2: #1f2226;
+  --c-border: #2b2f35;
+  --c-text: #ececee;
+  --c-muted: #9ca1a9;
   --c-brand: #2dd4bf;
   --c-brand-strong: #5eead4;
-  --c-brand-soft: #123631;
-  --c-on-brand: #04201c;
+  --c-brand-soft: rgba(45, 212, 191, 0.12);
+  --c-on-brand: #042f2a;
   --c-accent: #fbbf24;
-  --c-accent-soft: #3a2c0b;
+  --c-accent-soft: rgba(251, 191, 36, 0.14);
   --c-danger: #f97066;
-  --c-danger-soft: #3b1513;
+  --c-danger-soft: rgba(249, 112, 102, 0.14);
   --c-success: #4ade80;
-  --c-success-soft: #10301c;
+  --c-success-soft: rgba(74, 222, 128, 0.12);
 }
 
 @theme inline {

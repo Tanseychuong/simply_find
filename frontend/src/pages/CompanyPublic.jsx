@@ -58,7 +58,7 @@ export default function CompanyPublic() {
         {company.description && <p className="mb-10 max-w-3xl leading-relaxed whitespace-pre-line text-muted">{company.description}</p>}
         <h2 className="mb-4 text-xl font-semibold">Open roles ({jobs.length})</h2>
         {jobs.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3">
             {jobs.map((o) => <OpportunityCard key={o.id} opp={o} />)}
           </div>
         ) : (

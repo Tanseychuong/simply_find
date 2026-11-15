@@ -21,7 +21,7 @@ function Hero() {
   }
 
   return (
-    <section className="border-b border-border bg-gradient-to-b from-brand-soft/60 to-bg">
+    <section className="border-b border-border bg-gradient-to-b from-brand-soft/60 to-bg dark:from-surface">
       <Container className="py-14 sm:py-20">
         <div className="max-w-3xl">
           <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand/20 bg-surface px-3 py-1 text-xs font-medium text-brand-strong">
@@ -95,7 +95,7 @@ function LatestRoles() {
             See all <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3">
           {loading ? Array.from({ length: 6 }, (_, i) => <CardSkeleton key={i} />) : results.map((o) => <OpportunityCard key={o.id} opp={o} />)}
         </div>
       </Container>
