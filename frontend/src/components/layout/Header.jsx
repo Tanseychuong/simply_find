@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { Bookmark, Briefcase, ChevronDown, FileText, LogOut, Menu, Monitor, Moon, Shield, Sun, User, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { useTheme } from "../../context/ThemeContext";
+import { DARK_MODE_ENABLED, useTheme } from "../../context/ThemeContext";
 import { ButtonLink, Container, cx } from "../ui";
 import Logo from "./Logo";
 
@@ -131,7 +131,7 @@ export default function Header() {
           <nav className="hidden items-center gap-1 md:flex" aria-label="Main">{links}</nav>
         </div>
         <div className="flex items-center gap-2">
-          <ThemeToggle />
+          {DARK_MODE_ENABLED && <ThemeToggle />}
           {!loading && !user && (
             <div className="hidden items-center gap-2 sm:flex">
               <ButtonLink to="/login" variant="ghost">Sign in</ButtonLink>

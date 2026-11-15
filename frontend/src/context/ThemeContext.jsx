@@ -7,6 +7,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 const ThemeContext = createContext(null);
 const KEY = "sf-theme";
 
+/*
+  Dark mode is switched off for now: the site is always light and the toggle
+  is hidden. The dark colours (index.css) and this code are kept; to bring it
+  back, set this to true and `darkModeEnabled` in index.html's inline script.
+*/
+export const DARK_MODE_ENABLED = false;
+
 function readSaved() {
   try {
     const v = localStorage.getItem(KEY);
@@ -17,7 +24,8 @@ function readSaved() {
 }
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(readSaved);
+  const [saved, setThemeState] = useState(readSaved);
+  const theme = DARK_MODE_ENABLED ? saved : "light";
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
