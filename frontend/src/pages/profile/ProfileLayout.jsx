@@ -36,7 +36,7 @@ export default function ProfileLayout() {
   if (loading && !profile) return <Spinner />;
   if (error) {
     return (
-      <Container className="py-10">
+      <Container className="py-8 sm:py-10">
         <Alert tone="danger">{errorMessage(error)}</Alert>
       </Container>
     );
@@ -44,7 +44,7 @@ export default function ProfileLayout() {
 
   const { steps, completeness } = profile.progress;
   return (
-    <Container className="py-8">
+    <Container className="py-6 sm:py-8">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My profile</h1>

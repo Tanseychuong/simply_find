@@ -113,14 +113,14 @@ export default function JoinCompany() {
   return (
     <>
       <section className="border-b border-border bg-gradient-to-b from-brand-soft/60 to-bg">
-        <Container className="py-14">
+        <Container className="py-10 sm:py-14">
           <h1 className="max-w-3xl text-4xl font-bold tracking-tight">Hire students and recent graduates, without the paperwork</h1>
           <p className="mt-4 max-w-2xl text-lg text-muted">
             Post internships, graduate programmes and entry-level roles. Applicants come with their studies, skills and documents in one place.
           </p>
         </Container>
       </section>
-      <Container className="grid gap-10 py-12 lg:grid-cols-[1fr_480px]">
+      <Container className="grid gap-8 py-8 sm:py-12 lg:gap-10 lg:grid-cols-[1fr_480px]">
         <div className="grid content-start gap-4 sm:grid-cols-2">
           {FEATURES.map(({ icon: Icon, title, body }) => (
             <Card key={title} className="p-5">
@@ -139,7 +139,7 @@ export default function JoinCompany() {
             </div>
           </Card>
         </div>
-        <Card className="self-start p-6">
+        <Card className="self-start p-4 sm:p-6">
           <h2 className="mb-4 text-xl font-semibold">{user?.company ? "Your company" : "Register your company"}</h2>
           {panel}
         </Card>

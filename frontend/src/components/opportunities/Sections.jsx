@@ -37,7 +37,7 @@ export default function Sections({ sections, description }) {
     return (
       <section>
         <h2 className="mb-3 text-lg font-semibold">About this opportunity</h2>
-        <div className="space-y-3 leading-relaxed whitespace-pre-line text-muted">{description}</div>
+        <div className="max-w-prose space-y-3 leading-relaxed whitespace-pre-line">{description}</div>
       </section>
     );
   }
@@ -46,7 +46,7 @@ export default function Sections({ sections, description }) {
       {sections.map((s, i) => (
         <section key={`${s.kind}-${i}`} id={s.kind}>
           <h2 className="mb-3 text-lg font-semibold">{s.title}</h2>
-          <div className="space-y-3 leading-relaxed text-muted">
+          <div className="max-w-prose space-y-3 leading-relaxed">
             <Blocks blocks={s.blocks} />
           </div>
         </section>

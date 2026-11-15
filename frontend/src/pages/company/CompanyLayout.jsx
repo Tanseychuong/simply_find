@@ -62,14 +62,14 @@ export default function CompanyLayout() {
     // mfa_* codes are redirected by the API client; show nothing in between.
     if (/^mfa_/.test(errorCodeOf(error) || "")) return <Spinner label="Checking two-step sign-in" />;
     return (
-      <Container className="py-10">
+      <Container className="py-8 sm:py-10">
         <Alert tone="danger">{errorMessage(error)}</Alert>
       </Container>
     );
   }
 
   return (
-    <Container className="py-8">
+    <Container className="py-6 sm:py-8">
       <header className="mb-6 flex items-center gap-4">
         {company.logo_url ? (
           <img src={company.logo_url} alt="" className="size-14 rounded-xl border border-border bg-surface object-contain p-1" />

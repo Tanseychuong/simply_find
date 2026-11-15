@@ -13,7 +13,7 @@ export default function AccessLog() {
   const { data, loading, error } = useApi((signal) => profileApi.accessLog({ signal }), []);
 
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <h2 className="text-xl font-semibold">Who opened my files</h2>
       <p className="mt-1 text-sm text-muted">
         Every time someone on a hiring team opens a document from one of your applications, it's recorded here. Only teams you applied

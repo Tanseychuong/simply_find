@@ -5,7 +5,7 @@ import { Card, Container, Input, cx } from "../ui";
 /** The centred card every sign-in, sign-up and email-link page uses. */
 export default function AuthCard({ title, subtitle, children, footer, wide = false }) {
   return (
-    <Container className="flex justify-center py-10 sm:py-16">
+    <Container className="flex justify-center py-8 sm:py-16">
       <div className={cx("w-full", wide ? "max-w-lg" : "max-w-md")}>
         <Card className="p-6 sm:p-8">
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>

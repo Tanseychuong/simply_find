@@ -183,7 +183,7 @@ function ApplyForm({ opp, docs }) {
 
   if (state.done) {
     return (
-      <Card className="p-8 text-center">
+      <Card className="p-5 sm:p-8 text-center">
         <CheckCircle2 className="mx-auto size-12 text-success" aria-hidden />
         <h2 className="mt-4 text-2xl font-semibold">Application sent</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted">
@@ -199,7 +199,7 @@ function ApplyForm({ opp, docs }) {
 
   return (
     <form onSubmit={submit} noValidate>
-      <Card className="space-y-6 p-6">
+      <Card className="space-y-6 p-4 sm:p-6">
         {state.error && <Alert tone="danger">{state.error}</Alert>}
         {opp.requirements.length === 0 && <p className="text-sm text-muted">This role only needs your profile. Confirm below to apply.</p>}
         {opp.requirements.map((r) => (
@@ -256,7 +256,7 @@ export default function Apply() {
   if (error?.response?.status === 404) return <NotFound />;
   if (error) {
     return (
-      <Container className="py-10">
+      <Container className="py-8 sm:py-10">
         <Alert tone="danger">{errorMessage(error)}</Alert>
       </Container>
     );
@@ -275,14 +275,14 @@ export default function Apply() {
     blocker = <Alert tone="warning">Applications for this role have closed.</Alert>;
   } else if (!user.email_verified) {
     blocker = (
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <h2 className="font-semibold">Confirm your email first</h2>
         <p className="mt-1 text-sm text-muted">We sent a link to {user.email} when you signed up. Use the bar at the top of the page to send it again.</p>
       </Card>
     );
   } else if (!eligibility.eligible) {
     blocker = (
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <div className="flex items-start gap-3">
           <UserRoundPen className="mt-0.5 size-5 shrink-0 text-accent" aria-hidden />
           <div>
@@ -298,7 +298,7 @@ export default function Apply() {
   }
 
   return (
-    <Container className="py-8">
+    <Container className="py-6 sm:py-8">
       <div className="mx-auto max-w-2xl">
         <Link to={backTo} className="mb-6 inline-flex items-center gap-1 text-sm text-muted hover:text-text">
           <ArrowLeft className="size-4" /> Back to the role

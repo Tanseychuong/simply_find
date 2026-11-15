@@ -371,7 +371,7 @@ function DeleteAccount() {
 export default function AccountSecurity() {
   useTitle("Account and security");
   return (
-    <Container className="py-8">
+    <Container className="py-6 sm:py-8">
       <div className="mx-auto max-w-3xl">
         <h1 className="mb-6 text-3xl font-bold tracking-tight">Account and security</h1>
         <div className="space-y-6">

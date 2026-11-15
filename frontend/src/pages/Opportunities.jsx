@@ -128,7 +128,7 @@ export default function Opportunities() {
   const panel = <FilterPanel p={p} categories={categories} locations={locations} />;
 
   return (
-    <Container className="py-8">
+    <Container className="py-6 sm:py-8">
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">{heading}</h1>
         <p className="mt-1 text-muted">Internships, graduate programmes and entry-level jobs. Every listing is checked before it goes live.</p>

@@ -8,22 +8,27 @@
   bg-brand ...) so light and dark mode are switched here, in one place.
 */
 :root {
-  --c-bg: #f7f8f7;
+  /* Light theme, tuned for long reading sessions:
+     - the page is a soft off-white, so white cards stand out without glare;
+     - text is dark charcoal, not black, to lower the contrast spikes that
+       tire the eyes (still above WCAG AA: about 14:1 for text, 6:1 for muted);
+     - borders are faint and greys are neutral, with no colour cast. */
+  --c-bg: #f6f7f9;
   --c-surface: #ffffff;
-  --c-surface-2: #f0f3f2;
-  --c-border: #dfe5e3;
-  --c-text: #14201d;
-  --c-muted: #5b6b67;
+  --c-surface-2: #f1f3f6;
+  --c-border: #e3e6eb;
+  --c-text: #1f2937;
+  --c-muted: #586374;
   --c-brand: #0f766e;
   --c-brand-strong: #0b5c56;
-  --c-brand-soft: #e3f4f1;
+  --c-brand-soft: #e8f5f3;
   --c-on-brand: #ffffff;
-  --c-accent: #f59e0b;
-  --c-accent-soft: #fef3c7;
+  --c-accent: #d97706;
+  --c-accent-soft: #fdf4e3;
   --c-danger: #b42318;
-  --c-danger-soft: #fdeceb;
+  --c-danger-soft: #fdf0ef;
   --c-success: #15803d;
-  --c-success-soft: #e7f6ec;
+  --c-success-soft: #ebf7ef;
 }
 
 /* Dark mode uses neutral greys; teal appears only as the accent, never in the
@@ -78,7 +83,31 @@ body {
   background: var(--c-bg);
   color: var(--c-text);
   font-family: var(--font-sans);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Even line breaks in paragraphs: no single word left alone on the last line. */
+p {
+  text-wrap: pretty;
+}
+
+::selection {
+  background: var(--c-brand-soft);
+  color: var(--c-brand-strong);
+}
+
+/* Visitors who ask their device for less motion get no animations. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 :focus-visible {

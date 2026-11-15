@@ -3,7 +3,7 @@ import { ButtonLink, Container, EmptyState } from "../components/ui";
 
 export default function NotFound() {
   return (
-    <Container className="py-12">
+    <Container className="py-8 sm:py-12">
       <EmptyState
         icon={SearchX}
         title="We couldn't find that page"

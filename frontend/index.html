@@ -12,9 +12,13 @@
     <title>SimplyFind: internships and graduate roles</title>
     <script>
       // Apply the saved theme before first paint, so dark mode doesn't flash.
+      // Dark mode is off for now: keep in step with DARK_MODE_ENABLED in ThemeContext.jsx.
+      var darkModeEnabled = false;
       try {
         var t = localStorage.getItem("sf-theme");
-        if (t === "dark" || (!t && matchMedia("(prefers-color-scheme: dark)").matches)) {
+        if (!darkModeEnabled) {
+          // Always light.
+        } else if (t === "dark" || (!t && matchMedia("(prefers-color-scheme: dark)").matches)) {
           document.documentElement.classList.add("dark");
         }
       } catch (e) {}

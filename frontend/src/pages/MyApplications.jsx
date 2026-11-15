@@ -107,7 +107,7 @@ export default function MyApplications() {
   const activeCount = apps.filter((a) => !CLOSED.has(a.status)).length;
 
   return (
-    <Container className="py-8">
+    <Container className="py-6 sm:py-8">
       <div className="mx-auto max-w-3xl">
         <h1 className="text-3xl font-bold tracking-tight">My applications</h1>
         <p className="mt-1 text-sm text-muted">Applications you made on SimplyFind. Roles on other websites are tracked there.</p>

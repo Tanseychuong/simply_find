@@ -53,7 +53,7 @@ export default function CompanyProfile() {
 
   const f = state.fields;
   return (
-    <Card className="mx-auto max-w-3xl p-6">
+    <Card className="mx-auto max-w-3xl p-4 sm:p-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Company profile</h2>
         {company.status === "approved" && (
