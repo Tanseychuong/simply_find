@@ -50,3 +50,26 @@ jobs:
         run: python manage.py makemigrations --check --dry-run
       - name: Tests
         run: python -m pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      # No PRERENDER_API_URL here: the build must still succeed (static pages
+      # only), exactly as it does on Render when the API is unreachable.
+      - name: Build
+        run: npm run build
+      - name: The app shell and pre-rendered pages exist
+        run: test -f dist/app.html && test -f dist/index.html && test -f dist/robots.txt

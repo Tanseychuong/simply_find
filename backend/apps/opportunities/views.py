@@ -21,6 +21,7 @@ from .services import (
     filter_by_role,
     landing_stats,
     list_visible_opportunities,
+    live_locations,
     reject_opportunity,
     submit_opportunity,
 )
@@ -126,6 +127,17 @@ class OpportunityViewSet(viewsets.ModelViewSet):
         data = cache.get(key)
         if data is None:
             data = landing_stats(_current_user(request))
+            cache.set(key, data, settings.LANDING_STATS_CACHE_SECONDS)
+        return Response(data)
+
+    @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny], pagination_class=None)
+    def locations(self, request):
+        """Places with open roles, for the location filter: [{name, count}].
+        Counted as an anonymous visitor so one cached answer suits everyone."""
+        key = "opportunities:live-locations"
+        data = cache.get(key)
+        if data is None:
+            data = live_locations(None)
             cache.set(key, data, settings.LANDING_STATS_CACHE_SECONDS)
         return Response(data)
 

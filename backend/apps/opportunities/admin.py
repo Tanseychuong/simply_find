@@ -117,7 +117,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         (None, {"fields": ("title", "organization", "category", "description", "location", "opportunity_url", "open_link", "application_deadline")}),
         ("Who it's for", {"fields": (
             "role_type", "experience_years_max", ("graduation_year_min", "graduation_year_max"),
-            "is_paid", "work_mode", "duration_months", "accepts_minors",
+            "is_paid", "work_mode", "employment_type", "duration_months", "accepts_minors",
         )}),
         ("Description sections", {
             "fields": ("sections",),

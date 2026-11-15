@@ -1,9 +1,74 @@
-# Render Blueprint for the SimplyFind backend.
+# Render Blueprint for SimplyFind: the API, the website and the virus scanner.
 # Render dashboard -> New -> Blueprint -> pick this repo.
 # Values marked `sync: false` are asked for once when the Blueprint is created.
-# The frontend service is added here once the website is built.
+# Step-by-step: docs/deploy.md.
 
 services:
+  # The website: React app, with the public pages pre-rendered at build time
+  # (frontend/scripts/prerender.mjs) for search engines and link previews.
+  - type: web
+    name: simplyfind-web
+    runtime: static
+    # No rootDir: the build cds into frontend/, so the publish path is from the repo root.
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: frontend/dist
+    buildFilter:
+      paths:
+        - frontend/**
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # The website's own address, e.g. https://simplyfind-web.onrender.com
+      # (or your domain). Same value as the API's SITE_URL.
+      - key: SITE_URL
+        sync: false
+      # The API's public address, read at build time to pre-render pages,
+      # e.g. https://simplyfind-api.onrender.com
+      - key: PRERENDER_API_URL
+        sync: false
+      # How the browser reaches the API:
+      #   empty (default): same origin. The site proxies /api to the API with
+      #     the rewrite below, so it works on *.onrender.com with no domain.
+      #   https://api.your-domain: direct, once the site and the API share a
+      #     domain (simplyfind.org + api.simplyfind.org). Faster, real visitor IPs.
+      - key: VITE_API_URL
+        sync: false
+      # "Sign in with Google" client ID (same as the API's GOOGLE_CLIENT_ID). Empty = hidden.
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      # The camera is for scanning documents at a recruitment drive desk.
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(self), microphone=(), geolocation=()
+      # Build files have content hashes in their names: cache them for good.
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    # Files that exist (the pre-rendered pages, assets) are always served as
+    # they are; these rules apply only to other paths, in order.
+    # Change simplyfind-api.onrender.com if your API has another address.
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://simplyfind-api.onrender.com/api/*
+      - type: rewrite
+        source: /sitemap.xml
+        destination: https://simplyfind-api.onrender.com/sitemap.xml
+      # Every other path is a page of the app.
+      - type: rewrite
+        source: /*
+        destination: /app.html
+
   # Django API + admin
   - type: web
     name: simplyfind-api
@@ -50,15 +115,18 @@ services:
       # Extra frontend origins (a www. alias, a preview deploy), comma-separated. Optional.
       - key: CORS_ALLOWED_ORIGINS
         sync: false
-      # When the API and the website are on different sites, set this to
-      # "None" so the browser sends the sign-in cookies (they stay Secure and
-      # HttpOnly). Leave unset when both share a domain (recommended).
+      # Leave both unset. The website reaches the API either through its /api
+      # proxy (same origin) or at api.<your domain> (same site), and the
+      # default SameSite=Lax host-only cookies work for both. "None" is only
+      # for a website on a different site, which browsers increasingly block.
       - key: AUTH_COOKIE_SAMESITE
         sync: false
-      - key: AUTH_COOKIE_DOMAIN    # e.g. .simplyfind.example to share cookies with api.simplyfind.example
+      - key: AUTH_COOKIE_DOMAIN
         sync: false
-      # The website's Deploy Hook URL: suspending a company or taking down a
-      # live listing then rebuilds the site so its pre-rendered page goes at once.
+      # The website's Deploy Hook URL (simplyfind-web -> Settings -> Deploy Hook):
+      # suspending a company or taking down a live listing then rebuilds the
+      # site so its pre-rendered page goes at once. The same URL goes in the
+      # GitHub secret RENDER_FRONTEND_DEPLOY_HOOK for the twice-daily rebuild.
       - key: FRONTEND_DEPLOY_HOOK
         sync: false
       # "Sign in with Google" OAuth client ID. Unset = Google sign-in off.

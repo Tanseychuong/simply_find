@@ -70,6 +70,19 @@ def required_experience(text: str) -> int | None:
     return min(found) if found else None
 
 
+_PART_TIME = re.compile(r"(?i)\bpart[\s-]?time\b")
+_FULL_TIME = re.compile(r"(?i)\bfull[\s-]?time\b")
+
+
+def employment_type(text: str) -> str:
+    """'full_time' or 'part_time' when the text says only one of them; blank
+    when it says neither or both ("full-time or part-time")."""
+    part, full = bool(_PART_TIME.search(text or "")), bool(_FULL_TIME.search(text or ""))
+    if part == full:
+        return ""
+    return "part_time" if part else "full_time"
+
+
 def classify_role(item: dict, default_role_type: str = "") -> RoleGuess | None:
     """Which role type an item is, or None if it isn't for students and
     recent graduates. `default_role_type` is the source's own (blank for
