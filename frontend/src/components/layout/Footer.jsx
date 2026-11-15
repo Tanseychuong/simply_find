@@ -4,9 +4,9 @@ import Logo from "./Logo";
 
 export default function Footer() {
   return (
-    <footer className="mt-16 border-t border-border bg-surface">
-      <Container className="grid gap-8 py-10 sm:grid-cols-[2fr_1fr_1fr]">
-        <div className="space-y-3">
+    <footer className="mt-12 border-t sm:mt-16 border-border bg-surface">
+      <Container className="grid grid-cols-2 gap-x-6 gap-y-8 py-8 sm:grid-cols-[2fr_1fr_1fr] sm:py-10">
+        <div className="col-span-2 space-y-3 sm:col-span-1">
           <Logo />
           <p className="max-w-sm text-sm text-muted">
             Internships, graduate programmes and entry-level roles for students and recent graduates. Keep your

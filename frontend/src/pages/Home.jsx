@@ -22,7 +22,7 @@ function Hero() {
 
   return (
     <section className="border-b border-border bg-gradient-to-b from-brand-soft/60 to-bg dark:from-surface">
-      <Container className="py-14 sm:py-20">
+      <Container className="py-10 sm:py-16 lg:py-20">
         <div className="max-w-3xl">
           <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand/20 bg-surface px-3 py-1 text-xs font-medium text-brand-strong">
             <Sparkles className="size-3.5" aria-hidden /> For students and recent graduates
@@ -61,7 +61,7 @@ function Hero() {
           </div>
         </div>
         {stats && (
-          <dl className="mt-12 grid max-w-2xl grid-cols-3 gap-4">
+          <dl className="mt-8 grid max-w-2xl grid-cols-3 gap-4 sm:mt-12">
             {[
               ["Open roles", stats.live],
               ["Added this week", stats.added_this_week],
@@ -85,7 +85,7 @@ function LatestRoles() {
   if (!loading && results.length === 0) return null;
   return (
     <section>
-      <Container className="py-14">
+      <Container className="py-10 sm:py-14">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold">Latest roles</h2>
@@ -109,16 +109,16 @@ function Categories() {
   if (!cats.length) return null;
   return (
     <section className="border-y border-border bg-surface">
-      <Container className="py-14">
+      <Container className="py-10 sm:py-14">
         <h2 className="text-2xl font-semibold">Browse by field</h2>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4 sm:mt-6">
           {cats.map((c) => (
             <Link
               key={c.id}
               to={`/opportunities?category=${c.slug}`}
-              className="group rounded-xl border border-border p-4 transition-colors hover:border-brand hover:bg-brand-soft/40"
+              className="group rounded-xl border border-border p-3 transition-colors sm:p-4 hover:border-brand hover:bg-brand-soft/40"
             >
-              <p className="font-medium group-hover:text-brand">{c.name}</p>
+              <p className="text-sm font-medium group-hover:text-brand sm:text-base">{c.name}</p>
               <p className="mt-1 text-sm text-muted">
                 {c.live_count} open role{c.live_count === 1 ? "" : "s"}
               </p>
@@ -140,11 +140,11 @@ function HowItWorks() {
   const { user } = useAuth();
   return (
     <section>
-      <Container className="py-14">
+      <Container className="py-10 sm:py-14">
         <h2 className="text-2xl font-semibold">Paperless applications</h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="mt-5 grid gap-3 sm:mt-6 sm:gap-4 md:grid-cols-3">
           {STEPS.map(({ icon: Icon, title, body }) => (
-            <Card key={title} className="p-5">
+            <Card key={title} className="p-4 sm:p-5">
               <span className="grid size-10 place-items-center rounded-lg bg-brand-soft text-brand">
                 <Icon className="size-5" aria-hidden />
               </span>
@@ -153,7 +153,7 @@ function HowItWorks() {
             </Card>
           ))}
         </div>
-        <div className="mt-8">
+        <div className="mt-6 sm:mt-8">
           {user ? (
             <ButtonLink to="/profile">Go to your profile</ButtonLink>
           ) : (
@@ -169,7 +169,7 @@ function EmployerBand() {
   return (
     <section>
       <Container className="pb-4">
-        <div className="flex flex-col items-start justify-between gap-6 rounded-2xl bg-brand p-8 text-on-brand sm:flex-row sm:items-center">
+        <div className="flex flex-col items-start justify-between gap-6 rounded-2xl bg-brand p-6 text-on-brand sm:p-8 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-2xl font-semibold">Hiring students or graduates?</h2>
             <p className="mt-1 opacity-90">Post roles, collect applications with verified documents, and run campus recruitment drives.</p>

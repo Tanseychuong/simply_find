@@ -128,7 +128,7 @@ export default function OpportunityDetail() {
   if (error?.response?.status === 404) return <NotFound />;
   if (error) {
     return (
-      <Container className="py-10">
+      <Container className="py-8 sm:py-10">
         <Alert tone="danger">{errorMessage(error)}</Alert>
       </Container>
     );
@@ -136,7 +136,7 @@ export default function OpportunityDetail() {
 
   const org = organisationOf(opp);
   return (
-    <Container className="py-8">
+    <Container className="py-6 sm:py-8">
       <Link to="/opportunities" className="mb-6 inline-flex items-center gap-1 text-sm text-muted hover:text-text">
         <ArrowLeft className="size-4" /> All roles
       </Link>

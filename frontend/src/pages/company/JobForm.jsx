@@ -135,7 +135,7 @@ function QuestionEditor({ q, index, count, onChange, onMove, onRemove, error }) 
 
 function Section({ title, children, intro }) {
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <h2 className="text-lg font-semibold">{title}</h2>
       {intro && <p className="mt-1 text-sm text-muted">{intro}</p>}
       <div className="mt-5 space-y-5">{children}</div>

@@ -19,14 +19,14 @@ export default function PublicDrive() {
   if (error?.response?.status === 404) return <NotFound />;
   if (error) {
     return (
-      <Container className="py-10">
+      <Container className="py-8 sm:py-10">
         <Alert tone="danger">{errorMessage(error)}</Alert>
       </Container>
     );
   }
 
   return (
-    <Container className="py-10">
+    <Container className="py-8 sm:py-10">
       <div className="mx-auto max-w-2xl">
         <Card className="p-6 sm:p-8">
           <div className="flex items-center gap-3">

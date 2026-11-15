@@ -79,7 +79,7 @@ export default function Team() {
   return (
     <div className="space-y-6">
       {message && <Alert tone="danger">{message}</Alert>}
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <h2 className="text-lg font-semibold">Team members</h2>
         <ul className="mt-4 divide-y divide-border">
           {data.members.map((m) => (
@@ -130,7 +130,7 @@ export default function Team() {
       </Card>
 
       {perms.invite && (
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="mb-4 text-lg font-semibold">Invite someone</h2>
           <InviteForm perms={perms} onInvited={(inv) => setData((d) => ({ ...d, invitations: [inv, ...d.invitations] }))} />
           {data.invitations.length > 0 && (

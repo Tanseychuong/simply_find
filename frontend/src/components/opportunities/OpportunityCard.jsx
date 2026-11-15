@@ -113,7 +113,7 @@ export default function OpportunityCard({ opp }) {
           </span>
         </div>
         {/* On phones the deadline and how to apply go under the details. */}
-        <div className="mt-3 flex items-center justify-between gap-3 text-xs whitespace-nowrap sm:hidden">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs whitespace-nowrap sm:hidden">
           {deadlineEl}
           {applyEl}
         </div>

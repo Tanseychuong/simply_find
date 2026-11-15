@@ -12,7 +12,7 @@ export default function Saved() {
   const items = Array.isArray(data) ? data : data?.results || [];
 
   return (
-    <Container className="py-8">
+    <Container className="py-6 sm:py-8">
       <h1 className="mb-6 text-3xl font-bold tracking-tight">Saved roles</h1>
       {error ? (
         <Alert tone="danger">{errorMessage(error)}</Alert>

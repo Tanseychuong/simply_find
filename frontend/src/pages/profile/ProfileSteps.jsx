@@ -43,7 +43,7 @@ function useStepForm(step, keys) {
 
 function StepCard({ title, intro, children, onSubmit, state, last }) {
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <h2 className="text-xl font-semibold">{title}</h2>
       {intro && <p className="mt-1 text-sm text-muted">{intro}</p>}
       <form onSubmit={onSubmit} noValidate className="mt-6 space-y-5">

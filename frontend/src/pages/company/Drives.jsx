@@ -107,7 +107,7 @@ export default function Drives() {
       </div>
 
       {creating && (
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <form onSubmit={create} noValidate className="space-y-5">
             <h3 className="text-lg font-semibold">New drive</h3>
             {state.error && <Alert tone="danger">{state.error}</Alert>}

@@ -148,7 +148,7 @@ function Registrations({ driveId, active, onChange }) {
   return (
     <>
       {active ? (
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h3 className="mb-1 text-lg font-semibold">Signup desk</h3>
           <p className="mb-5 text-sm text-muted">For students without a phone or data. Ask for their consent before you start.</p>
           <DeskSignup driveId={driveId} onAdded={(reg) => {
@@ -161,7 +161,7 @@ function Registrations({ driveId, active, onChange }) {
       ) : (
         <Alert tone="info">The drive is closed, so the signup desk is off. Reopen it to sign students up.</Alert>
       )}
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <h3 className="mb-4 text-lg font-semibold">Students from this drive</h3>
         {loading && !data ? (
           <Spinner />
@@ -247,7 +247,7 @@ export default function DriveDetail() {
     <div className="space-y-6">
       <Link to="/company/drives" className="inline-flex items-center gap-1 text-sm text-muted hover:text-text"><ArrowLeft className="size-4" /> Drives</Link>
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           {editing ? (
             <form onSubmit={(e) => { e.preventDefault(); save(drivePayload(editing)); }} noValidate className="space-y-5">
               {state.error && <Alert tone="danger">{state.error}</Alert>}
@@ -295,7 +295,7 @@ export default function DriveDetail() {
             </>
           )}
         </Card>
-        <Card className="p-6 text-center">
+        <Card className="p-4 sm:p-6 text-center">
           <img src={drivesApi.qrUrl(drive.id)} alt={`QR code for ${drive.public_url}`} className="mx-auto size-48 rounded-lg bg-white p-2" />
           <p className="mt-3 font-mono text-lg font-semibold tracking-widest">{drive.code}</p>
           <p className="mt-1 text-xs break-all text-muted">{drive.public_url}</p>

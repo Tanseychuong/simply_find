@@ -19,7 +19,7 @@ export default function CompanyPublic() {
   if (error?.response?.status === 404) return <NotFound />;
   if (error) {
     return (
-      <Container className="py-10">
+      <Container className="py-8 sm:py-10">
         <Alert tone="danger">{errorMessage(error)}</Alert>
       </Container>
     );
@@ -30,7 +30,7 @@ export default function CompanyPublic() {
   return (
     <>
       <section className="border-b border-border bg-surface">
-        <Container className="flex flex-col gap-6 py-10 sm:flex-row sm:items-center">
+        <Container className="flex flex-col gap-6 py-8 sm:py-10 sm:flex-row sm:items-center">
           {company.logo_url ? (
             <img src={company.logo_url} alt="" className="size-20 rounded-xl border border-border bg-surface object-contain p-2" />
           ) : (
@@ -54,7 +54,7 @@ export default function CompanyPublic() {
           </div>
         </Container>
       </section>
-      <Container className="py-10">
+      <Container className="py-8 sm:py-10">
         {company.description && <p className="mb-10 max-w-3xl leading-relaxed whitespace-pre-line text-muted">{company.description}</p>}
         <h2 className="mb-4 text-xl font-semibold">Open roles ({jobs.length})</h2>
         {jobs.length ? (

@@ -8,7 +8,7 @@ export function cx(...classes) {
 }
 
 export function Container({ className, children }) {
-  return <div className={cx("mx-auto w-full max-w-6xl px-4 sm:px-6", className)}>{children}</div>;
+  return <div className={cx("mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 2xl:max-w-7xl", className)}>{children}</div>;
 }
 
 const BUTTON_BASE =
